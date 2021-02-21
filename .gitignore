@@ -1,3 +1,9 @@
+# ROS related
+build/
+devel/
+log/
+install/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

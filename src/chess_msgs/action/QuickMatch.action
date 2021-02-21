@@ -1,0 +1,9 @@
+# Request
+PlayerInfo requester
+---
+# Result
+bool success
+PlayerInfo opponent
+---
+# Feedback
+duration time

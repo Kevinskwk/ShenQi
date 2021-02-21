@@ -1,0 +1,9 @@
+# Request
+uint8[] moves
+---
+# Result
+bool success
+---
+# Feedback
+uint8 start
+uint8 end
