@@ -1,0 +1,13 @@
+#!/usr/bin/env python3
+
+import rospy
+from chess_msgs.msg import UIin, UIout
+
+
+UI_input_pub = rospy.Publisher('UI_input', UIin, queue_size=10)
+
+UI_output_sub = rospy.Subscriber('UI_output', UIout, None, queue_size=1)
+
+rospy.init_node('UI_node', anonymous = True)
+
+rospy.spin()

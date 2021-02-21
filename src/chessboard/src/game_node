@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+
+import rospy
+import actionlib
+from chess_msgs.msg import GameCmd, Grid, PlayerInfo, ServerInfo, UIin, UIout
+from chess_msgs.msg import MovePieceAction, QuickMatchAction
+
+
+game_cmd_pub = rospy.Publisher('/game_command', GameCmd, queue_size=10)
+player_info_pub = rospy.Publisher('/player_info', PlayerInfo, queue_size=10)
+UI_output_pub = rospy.Publisher('UI_output', UIout, queue_size=10)
+
+sensor_sub = rospy.Subscriber('sensor_info', Grid, None, queue_size=1)
+UI_input_sub = rospy.Subscriber('UI_input', UIin, None, queue_size=1)
+server_sub = rospy.Subscriber('/server_info', ServerInfo, None, queue_size=1)
+
+move_piece_client = actionlib.SimpleActionClient('move_piece', MovePieceAction)
+quick_match_client = actionlib.SimpleActionClient('/quick_match', QuickMatchAction)
+
+rospy.init_node('game_node', anonymous = True)
+
+rospy.spin()
