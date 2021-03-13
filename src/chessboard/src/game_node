@@ -1,21 +1,89 @@
 #!/usr/bin/env python3
 
+'''
+Node that hosts the chess game and communicates to all the periferal nodes
+'''
+import enum
 import rospy
 import actionlib
-from chess_msgs.msg import GameCmd, Grid, PlayerInfo, ServerInfo, UIin, UIout
-from chess_msgs.msg import MovePieceAction, QuickMatchAction
+from .Board import Board
+from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout
+from chess_msgs.srv import SendCmd, ServerInfo
+from chess_msgs.msg import MovePieceAction, QuickMatchAction, WaitCmdAction
 
+W = 9
+H = 10
 
-game_cmd_pub = rospy.Publisher('/game_command', GameCmd, queue_size=10)
-player_info_pub = rospy.Publisher('/player_info', PlayerInfo, queue_size=10)
-UI_output_pub = rospy.Publisher('UI_output', UIout, queue_size=10)
+class States(enum.Enum):
+    ERROR = 0
+    READY = 1
+    MATCHING = 2
+    PLAYING = 3
+    ENDGAME = 4
 
-sensor_sub = rospy.Subscriber('sensor_info', Grid, None, queue_size=1)
-UI_input_sub = rospy.Subscriber('UI_input', UIin, None, queue_size=1)
-server_sub = rospy.Subscriber('/server_info', ServerInfo, None, queue_size=1)
+class Game:
 
-move_piece_client = actionlib.SimpleActionClient('move_piece', MovePieceAction)
-quick_match_client = actionlib.SimpleActionClient('/quick_match', QuickMatchAction)
+    def __init__(self):
+        # Chessboard
+        self.board = Board()
+        self.grid = [False] * 90
+
+        # Metadata
+        self.mode = States.READY
+
+        # ROS publishers
+        self.player_info_pub = rospy.Publisher('player_info', PlayerInfo, queue_size=10)
+        self.UI_output_pub = rospy.Publisher('UI_output', UIout, queue_size=10)
+
+        # ROS subscribers
+        self.sensor_sub = rospy.Subscriber('sensor_data', Grid, self.sensor_cb, queue_size=1)
+        self.UI_input_sub = rospy.Subscriber('UI_input', UIin, self.UI_input_cb, queue_size=1)
+
+        # ROS service clients
+        rospy.wait_for_service('send_cmd')
+        self.send_cmd_client = rospy.ServiceProxy('send_cmd', SendCmd)
+        rospy.wait_for_service('server_info')
+        self.server_info_client = rospy.ServiceProxy('server_info', ServerInfo)
+
+        # ROS action clients
+        self.wait_cmd_client = actionlib.SimpleActionClient('wait_cmd', WaitCmdAction)
+        self.move_piece_client = actionlib.SimpleActionClient('move_piece', MovePieceAction)
+        self.quick_match_client = actionlib.SimpleActionClient('quick_match', QuickMatchAction)
+
+    # Callback functions
+    def sensor_cb(self, msg):
+        changes = dict()
+        for i in range(90):
+            if self.grid[i] != msg[i]:
+                changes[i] = msg[i]
+        if len(changes > 0):
+            self.grid = msg
+            # Do the changes
+
+    def UI_input_cb(self, msg):
+        # Do the changes
+        pass
+
+    def wait_cmd_feedback_cb(self, feedback):
+        pass
+
+    def wait_cmd_done_cb(self, state, result):
+        pass
+
+    def move_piece_feedback_cb(self, feedback):
+        pass
+
+    def move_piece_done_cb(self, state, result):
+        pass
+
+    def quick_match_feedback_cb(self, feedback):
+        pass
+
+    def quick_match_done_cb(self, state, result):
+        pass
+
+        
+
 
 rospy.init_node('game_node', anonymous = True)
 

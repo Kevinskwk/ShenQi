@@ -1,2 +1,2 @@
 # placeholder only
-string data
+uint8 button

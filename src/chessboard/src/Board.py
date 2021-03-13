@@ -1,5 +1,8 @@
 from random import randint
 
+W = 9
+H = 10
+
 class Board:
     def __init__(self):
         self.tiles = [[' ',' ',' ',' ',' ',' ',' ',' ',' '],
@@ -247,7 +250,7 @@ def main():
         start = (int(cmd[0]), int(cmd[1]))
         end = (int(cmd[2]), int(cmd[3]))
 
-        if start[0] > 8 or end[0] > 8 or \
+        if start[0] > W-1 or end[0] > W-1 or \
            (start[0] == end[0] and start[1] == end[1]):
             print("Invalid command!")
             continue

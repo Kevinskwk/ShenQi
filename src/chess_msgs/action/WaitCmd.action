@@ -1,0 +1,10 @@
+# Request
+PlayerInfo sender
+PlayerInfo target
+---
+# Result
+bool success
+GameCmd cmd
+---
+# Feedback
+uint32 duration

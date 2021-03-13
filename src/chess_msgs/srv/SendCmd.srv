@@ -1,0 +1,5 @@
+# Request
+GameCmd cmd
+---
+# Response
+bool success

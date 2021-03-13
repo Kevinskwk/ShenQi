@@ -52,17 +52,16 @@ add_message_files(
   GameCmd.msg
   Grid.msg
   PlayerInfo.msg
-  ServerInfo.msg
   UIin.msg
   UIout.msg
 )
 
 ## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+add_service_files(
+  FILES
+  SendCmd.srv
+  ServerInfo.srv
+)
 
 ## Generate actions in the 'action' folder
 add_action_files(
@@ -70,6 +69,7 @@ add_action_files(
   FILES
   MovePiece.action
   QuickMatch.action
+  WaitCmd.action
 )
 
 ## Generate added messages and services with any dependencies listed here
