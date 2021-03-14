@@ -8,7 +8,14 @@ import rospy
 import actionlib
 from chess_msgs.msg import PlayerInfo
 from chess_msgs.msg import QuickMatchAction, WaitCmdAction
-from chess_msgs.srv import SendCmd, ServerInfo
+from chess_msgs.srv import SendCmd, SendCmdResponse, ServerInfo, ServerInfoResponse
+
+import pyrebase
+from .credential import config
+
+# Firebase stuff
+firebase = pyrebase.initialize_app(config)
+db = firebase.database()
 
 # ROS action server
 class QuickMatchServer(object):
