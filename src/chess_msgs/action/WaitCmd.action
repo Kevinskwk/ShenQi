@@ -1,10 +1,10 @@
 # Request
 PlayerInfo sender
 PlayerInfo target
+uint16 step
 ---
 # Result
-bool success
-GameCmd cmd
+string move
 ---
 # Feedback
-uint32 duration
+uint32 wait_time

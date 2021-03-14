@@ -220,6 +220,9 @@ class Board:
     def get_winner(self):
         return self.winner
 
+    def get_turn(self):
+        return self.turn
+
     def log_info(self):
         print("Player{}'s turn.".format(self.turn))
 

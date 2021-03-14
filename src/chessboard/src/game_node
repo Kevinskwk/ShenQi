@@ -15,7 +15,7 @@ W = 9
 H = 10
 
 class States(enum.Enum):
-    ERROR = 0
+    OFFLINE = 0
     READY = 1
     MATCHING = 2
     PLAYING = 3
@@ -30,6 +30,7 @@ class Game:
 
         # Metadata
         self.mode = States.READY
+        self.opponent = ''
 
         # ROS publishers
         self.player_info_pub = rospy.Publisher('player_info', PlayerInfo, queue_size=10)

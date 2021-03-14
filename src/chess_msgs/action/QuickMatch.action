@@ -1,9 +1,8 @@
 # Request
-PlayerInfo requester
+string requester
 ---
 # Result
-bool success
-PlayerInfo opponent
+string opponent
 ---
 # Feedback
 duration time

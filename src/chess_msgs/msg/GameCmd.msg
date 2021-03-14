@@ -1,4 +1,4 @@
 PlayerInfo sender
 PlayerInfo target
-uint8 start
-uint8 end
+string move
+uint16 step

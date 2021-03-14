@@ -1,2 +1,3 @@
 # placeholder only
-string data
+string player_id
+uint8 mode
