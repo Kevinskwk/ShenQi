@@ -6,20 +6,29 @@ Node that hosts the chess game and communicates to all the periferal nodes
 import enum
 import rospy
 import actionlib
-from .Board import Board
+from Board import Board
 from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout
 from chess_msgs.srv import SendCmd, ServerInfo
-from chess_msgs.msg import MovePieceAction, QuickMatchAction, WaitCmdAction
+from chess_msgs.msg import \
+    MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
+    QuickMatchAction, QuickMatchGoal, QuickMatchResult, QuickMatchFeedback, \
+    WaitCmdAction, WaitCmdGoal, WaitCmdResult, WaitCmdFeedback
 
 W = 9
 H = 10
 
 class States(enum.Enum):
-    OFFLINE = 0
-    READY = 1
-    MATCHING = 2
-    PLAYING = 3
-    ENDGAME = 4
+    HOME = 0
+    MODE_SELECT = 1
+    QUICKMATCH = 2
+    LOBBY_INPUT = 3
+    LOBBY_WAIT = 4
+    PROMPT_INVITE = 5
+    ARRANGE = 6
+    WAIT_ARRANGE = 7
+    PLAYING = 8
+    PROMPT_FORFEIT = 9
+    ENDGAME = 10
 
 class Game:
 
@@ -29,7 +38,10 @@ class Game:
         self.grid = [False] * 90
 
         # Metadata
-        self.mode = States.READY
+        self.state = States.HOME
+        self.info_msg = PlayerInfo()
+        self.info_msg.player_id = 'abcd'
+        self.lobby_input = ''
         self.opponent = ''
 
         # ROS publishers
@@ -62,30 +74,148 @@ class Game:
             # Do the changes
 
     def UI_input_cb(self, msg):
-        # Do the changes
-        pass
+        # input: 1, 2, 3, 4
+        input = msg.button
+        # FSM
+        if self.state == States.HOME:
+            self.state = States.MODE_SELECT
+            self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+        elif self.state == States.MODE_SELECT:
+            # Back
+            if input == 1:
+                self.state = States.HOME
+                self.UI_output_pub.publish(UIout("HOME"))
+            # Quickmatch
+            elif input == 2:
+                self.state = States.QUICKMATCH
+                self.UI_output_pub.publish(UIout("QUICKMATCH"))
+                goal = QuickMatchGoal(self.id)
+                self.quick_match_client.send_goal( \
+                    goal, \
+                    transition_cb=self.quick_match_done_cb, \
+                    feedback_cb=self.quick_match_feedback_cb)
+            # Lobby
+            elif input == 3:
+                self.state = States.LOBBY_INPUT
+                self.UI_output_pub.publish(UIout("LOBBY INPUT"))
+                self.lobby_input = ''
+
+        elif self.state == States.QUICKMATCH:
+            # Back
+            if input == 1:
+                self.quick_match_client.cancel_all_goals()
+                self.state = States.MODE_SELECT
+                self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+        elif self.state == States.LOBBY_INPUT:
+            if len(self.lobby_input) < 4:
+                if input == 1:
+                    self.lobby_input.append('a')
+                elif input == 2:
+                    self.lobby_input.append('b')
+                elif input == 3:
+                    self.lobby_input.append('c')
+                elif input == 4:
+                    self.lobby_input.append('d')
+            if len(self.lobby_input == 4):
+                self.state = States.LOBBY_WAIT
+                self.UI_output_pub.publish(UIout("LOBBY WAIT"))
+                # TODO: send request match action goal
+
+        elif self.state == States.LOBBY_WAIT:
+            # Back
+            if input == 1:
+                # TODO cancel request match goal
+                self.state = States.MODE_SELECT
+                self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+        elif self.state == States.PROMPT_INVITE:
+            # Accept
+            if input == 2:
+                # TODO: accept and pair with the requester
+                self.state = States.ARRANGE
+                self.UI_output_pub.publish(UIout("ARRANGE"))
+            # Decline
+            elif input == 3:
+                self.state = States.MODE_SELECT
+                self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+        elif self.state == States.ARRANGE:
+            # Confirm
+            if input == 4:
+                if self.check_arrangement():
+                    # TODO: send action goal to wait for opponent. Continuing
+                    # Should be in the action result callback
+                    self.state = States.PLAYING
+                    self.UI_output_pub.publish(UIout("PLAYING"))
+                else:
+                    self.UI_output_pub.publish(UIout("Arrangement error, try again"))
+
+        elif self.state == States.PLAYING:
+            # Forfeit
+            if input == 3:
+                self.state = States.PROMPT_FORFEIT
+                self.UI_output_pub.publish(UIout("PROMPT FORFEIT"))
+
+        elif self.state == States.PROMPT_FORFEIT:
+            # Yes
+            if input == 2:
+                # TODO: send forfeit command
+                self.state = States.ENDGAME
+                self.UI_output_pub.publish(UIout("ENDGAME"))
+            # No
+            elif input == 3:
+                self.state = States.PLAYING
+                self.UI_output_pub.publish(UIout("PLAYING"))
+
+        elif self.state == States.ENDGAME:
+            # Quit
+            if input == 1 or input == 3:
+                self.state = States.HOME
+                self.UI_output_pub.publish(UIout("HOME"))
+            # Rematch
+            if input == 2:
+                # TODO: send rematch action goal and wait for response
+                self.UI_output_pub.publish(UIout("REMATCH"))
+
+        self.info_msg.mode = self.state
+        self.player_info_pub.publish(self.info_msg)
 
     def wait_cmd_feedback_cb(self, feedback):
-        pass
+        self.UI_output_pub.publish(UIout(
+            "Waiting for opponent...{}".format(feedback.wait_time)))
 
     def wait_cmd_done_cb(self, state, result):
         pass
 
     def move_piece_feedback_cb(self, feedback):
-        pass
+        self.UI_output_pub.publish(UIout(
+            "Current move: {}".format(feedback.current_move)))
 
     def move_piece_done_cb(self, state, result):
         pass
 
     def quick_match_feedback_cb(self, feedback):
-        pass
+        self.UI_output_pub.publish(UIout(
+            "Matching opponent...{}".format(feedback.wait_time)))
 
     def quick_match_done_cb(self, state, result):
-        pass
-
+        if state == actionlib.SimpleClientGoalState.SUCCEEDED and \
+           result.opponent != 'timeout':
+            self.opponent = result.opponent
+            rospy.log_info("Matched with: {}".format(self.opponent))
+            self.state = States.ARRANGE
+            self.UI_output_pub.publish(UIout("ARRANGE"))
+        else:
+            rospy.log_info("Failed to find an opponent")
+            self.state = States.MODE_SELECT
+            self.UI_output_pub.publish(UIout("MODE SELECT"))
         
-
+    def check_arrangement(self):
+        # TODO: check if the initial arrangment is correct
+        return True
 
 rospy.init_node('game_node', anonymous = True)
-
+game = Game()
 rospy.spin()

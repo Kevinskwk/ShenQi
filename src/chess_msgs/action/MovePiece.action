@@ -1,9 +1,8 @@
 # Request
-uint8[] moves
+string[] moves
 ---
 # Result
 bool success
 ---
 # Feedback
-uint8 curr_start
-uint8 curr_end
+string current_move

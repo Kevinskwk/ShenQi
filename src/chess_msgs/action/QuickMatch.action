@@ -5,4 +5,4 @@ string requester
 string opponent
 ---
 # Feedback
-duration time
+uint32 wait_time
