@@ -66,6 +66,11 @@ class Board:
         self.moves += 1
 
     def check_legal(self, start, end):
+        # check if coordinate in range
+        if start[0] > W-1 or end[0] > W-1 or \
+           (start[0] == end[0] and start[1] == end[1]):
+           return False
+
         piece = self.tiles[start[1]][start[0]]
         # piece is null or not the player's
         if piece == ' ' or \
@@ -216,6 +221,11 @@ class Board:
 
         else:
             return False
+
+    def check_legal(self, cmd):
+        start = (int(cmd[0]), int(cmd[1]))
+        end = (int(cmd[2]), int(cmd[3]))
+        return self.check_legal(start, end)
 
     def get_winner(self):
         return self.winner

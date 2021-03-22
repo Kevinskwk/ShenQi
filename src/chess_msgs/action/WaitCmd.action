@@ -1,6 +1,6 @@
 # Request
-PlayerInfo sender
-PlayerInfo target
+string sender
+string target
 uint16 step
 ---
 # Result

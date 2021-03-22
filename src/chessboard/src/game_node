@@ -7,7 +7,7 @@ import enum
 import rospy
 import actionlib
 from Board import Board
-from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout
+from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout, GameCmd
 from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
@@ -16,6 +16,17 @@ from chess_msgs.msg import \
 
 W = 9
 H = 10
+
+INIT_GRID = [True , True , True , True , True , True , True , True , True ,
+             False, False, False, False, False, False, False, False, False,
+             False, True , False, False, False, False, False, True , False,
+             True , False, True , False, True , False, True , False, True ,
+             False, False, False, False, False, False, False, False, False,
+             False, False, False, False, False, False, False, False, False,
+             True , False, True , False, True , False, True , False, True ,
+             False, True , False, False, False, False, False, True , False,
+             False, False, False, False, False, False, False, False, False,
+             True , True , True , True , True , True , True , True , True ]
 
 class States(enum.Enum):
     HOME = 0
@@ -35,7 +46,13 @@ class Game:
     def __init__(self):
         # Chessboard
         self.board = Board()
-        self.grid = [False] * 90
+        self.curr_grid = [False] * 90
+        self.last_move_grid = [False] * 90
+        self.illegal = False
+        self.selected = None
+
+        ### REMOVE the following line later:
+        self.curr_grid = INIT_GRID
 
         # Metadata
         self.state = States.HOME
@@ -67,11 +84,51 @@ class Game:
     def sensor_cb(self, msg):
         changes = dict()
         for i in range(90):
-            if self.grid[i] != msg[i]:
+            if self.curr_grid[i] != msg[i]:
                 changes[i] = msg[i]
         if len(changes > 0):
-            self.grid = msg
-            # Do the changes
+            self.curr_grid = msg
+            # recovery from illegal move
+            if self.illegal:
+                if msg == self.last_move_grid:
+                    self.illegal = False
+                return
+            # ignore during auto moving and not during PLAYING
+            if self.moving or self.state != States.PLAYING:
+                return
+
+            if self.board.turn != 1:
+                self.illegal = True
+                self.UI_output_pub.publish(UIout("Illegal Move! Please return the piece!"))
+            else:
+                # get only one change (multiple also not expected)
+                key = next(iter(changes))
+
+                # taking up a piece
+                if (self.selected is None) and not changes[key]:
+                    self.selected = key
+
+                # putting down a piece
+                elif (self.selected is not None) and changes[key]:
+                    start = (self.selected % W, self.selected // W)
+                    end = (key % W, key // W)
+                    
+                    if not self.board.check_legal(start, end):
+                        self.illegal = True
+                        self.UI_output_pub.publish(UIout("Illegal Move! Please return the piece!"))
+                    else:
+                        self.board.move(start, end)
+                        cmd = str(start[0]) + str(start[1]) + str(end[0]) + str(end[1])
+                        cmd_msg = GameCmd(self.info_msg.player_id,
+                                          self.opponent,
+                                          cmd,
+                                          self.board.moves)
+                        resp = self.send_cmd_client(cmd_msg)
+                        if resp.success:
+                            self.wait_cmd_client.send_goal(WaitCmdGoal(
+                                self.info_msg.player_id,
+                                self.opponent,
+                                self.board.moves))
 
     def UI_input_cb(self, msg):
         # input: 1, 2, 3, 4
@@ -194,7 +251,7 @@ class Game:
             "Current move: {}".format(feedback.current_move)))
 
     def move_piece_done_cb(self, state, result):
-        pass
+        self.moving = False
 
     def quick_match_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
@@ -213,8 +270,11 @@ class Game:
             self.UI_output_pub.publish(UIout("MODE SELECT"))
         
     def check_arrangement(self):
-        # TODO: check if the initial arrangment is correct
-        return True
+        if self.curr_grid == INIT_GRID:
+            self.last_move_grid = INIT_GRID
+            return True
+        else:
+            return False
 
 rospy.init_node('game_node', anonymous = True)
 game = Game()
