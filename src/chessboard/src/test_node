@@ -1,0 +1,16 @@
+#!/usr/bin/env python3
+
+import rospy
+from std_msgs.msg import String
+
+test_pub = rospy.Publisher('test_cmd', String, queue_size=10)
+
+rospy.init_node('test_node', anonymous = True)
+
+while (True):
+    cmd = int(input("Cmd: "))
+    msg = String()
+    msg.data = cmd
+    test_pub.publish(msg)
+
+# rospy.spin()

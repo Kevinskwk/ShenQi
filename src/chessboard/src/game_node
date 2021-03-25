@@ -8,6 +8,8 @@ import rospy
 import actionlib
 from Board import Board
 # TODO: Might need to import Uint8MultiArray and replace Grid
+# TODO: Check what message types are redundant and can be replace with std_msgs
+from std_msgs.msg import String
 from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout, GameCmd
 from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
@@ -77,6 +79,9 @@ class Game:
             'sensor_data', Grid, self.sensor_cb, queue_size=1)
         self.UI_input_sub = rospy.Subscriber(
             'UI_input', UIin, self.UI_input_cb, queue_size=1)
+        # for testing
+        self.test_cmd_sub = rospy.Subscriber(
+            'test_cmd', String, self.test_cmd_cb, queue_size=1)
 
         # ROS service clients
         rospy.wait_for_service('send_cmd')
@@ -110,6 +115,12 @@ class Game:
                 self.debounce = None
                 self.curr_grid = msg
                 self.process_change(changes)
+
+    # for testing
+    def test_cmd_cb(self, msg):
+        start = (int(msg.data[0]), int(msg.data[1]))
+        end = (int(msg.data[2]), int(msg.data[3]))
+        self.process_move(start, end, test=True)
 
     def UI_input_cb(self, msg):
         # input: 1, 2, 3, 4
@@ -347,37 +358,40 @@ class Game:
             elif (self.selected is not None) and changes[key]:
                 start = (self.selected % W, self.selected // W)
                 end = (key % W, key // W)
+                self.process_move(start, end)
 
-                if not self.board.check_legal(start, end):
-                    self.illegal = True
-                    self.UI_output_pub.publish(
-                        UIout("Illegal Move! Please return the piece!"))
-                else:
-                    self.board.move(start, end)
-                    cmd = str(start[0]) + str(start[1]) + \
-                        str(end[0]) + str(end[1])
-                    cmd_msg = GameCmd(self.info_msg.player_id,
-                                      self.opponent,
-                                      cmd,
-                                      self.board.moves)
-                    resp = self.send_cmd_client(cmd_msg)
-                    # Try again, should not happen
-                    while not resp.success:
-                        print("Send command failed, trying again (OOPS)")
-                        resp = self.send_cmd_client(cmd_msg)
-                    # Check winning
-                    if self.board.get_winner == -1:
-                        self.wait_cmd_client.send_goal(WaitCmdGoal(
-                            self.info_msg.player_id,
-                            self.opponent,
-                            self.board.moves))
-                    else:
-                        self.state = States.ENDGAME
-                        self.UI_output_pub.publish(UIout("ENDGAME"))
-                        if self.board.get_winner == 1:
-                            self.UI_output_pub.publish(UIout("YOU WIN!"))
-                        elif self.board.get_winner == 0:
-                            self.UI_output_pub.publish(UIout("DRAW!"))
+    def process_move(self, start, end, test=False):
+        if not self.board.check_legal(start, end):
+            if not test:
+                self.illegal = True
+            self.UI_output_pub.publish(
+                UIout("Illegal Move! Please return the piece!"))
+        else:
+            self.board.move(start, end)
+            cmd = str(start[0]) + str(start[1]) + \
+                str(end[0]) + str(end[1])
+            cmd_msg = GameCmd(self.info_msg.player_id,
+                                self.opponent,
+                                cmd,
+                                self.board.moves)
+            resp = self.send_cmd_client(cmd_msg)
+            # Try again, should not happen
+            while not resp.success:
+                print("Send command failed, trying again (OOPS)")
+                resp = self.send_cmd_client(cmd_msg)
+            # Check winning
+            if self.board.get_winner == -1:
+                self.wait_cmd_client.send_goal(WaitCmdGoal(
+                    self.info_msg.player_id,
+                    self.opponent,
+                    self.board.moves))
+            else:
+                self.state = States.ENDGAME
+                self.UI_output_pub.publish(UIout("ENDGAME"))
+                if self.board.get_winner == 1:
+                    self.UI_output_pub.publish(UIout("YOU WIN!"))
+                elif self.board.get_winner == 0:
+                    self.UI_output_pub.publish(UIout("DRAW!"))
 
     def check_arrangement(self):
         if self.curr_grid == INIT_GRID:
