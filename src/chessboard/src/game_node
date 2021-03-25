@@ -30,6 +30,7 @@ INIT_GRID = [True , True , True , True , True , True , True , True , True ,
              False, False, False, False, False, False, False, False, False,
              True , True , True , True , True , True , True , True , True ]
 
+
 class States(enum.Enum):
     HOME = 0
     MODE_SELECT = 1
@@ -43,10 +44,12 @@ class States(enum.Enum):
     PROMPT_FORFEIT = 9
     ENDGAME = 10
 
+
 class Game:
 
     def __init__(self):
         # Chessboard
+        # NOTE: current player is always player 1 in the game
         self.board = Board()
         self.curr_grid = [False] * 90
         self.last_move_grid = [False] * 90
@@ -54,7 +57,7 @@ class Game:
         self.selected = None
         self.debounce = None
 
-        ### REMOVE the following line later:
+        # REMOVE the following line later:
         self.curr_grid = INIT_GRID
 
         # Metadata
@@ -65,12 +68,15 @@ class Game:
         self.opponent = ''
 
         # ROS publishers
-        self.player_info_pub = rospy.Publisher('player_info', PlayerInfo, queue_size=10)
+        self.player_info_pub = rospy.Publisher(
+            'player_info', PlayerInfo, queue_size=10)
         self.UI_output_pub = rospy.Publisher('UI_output', UIout, queue_size=10)
 
         # ROS subscribers
-        self.sensor_sub = rospy.Subscriber('sensor_data', Grid, self.sensor_cb, queue_size=1)
-        self.UI_input_sub = rospy.Subscriber('UI_input', UIin, self.UI_input_cb, queue_size=1)
+        self.sensor_sub = rospy.Subscriber(
+            'sensor_data', Grid, self.sensor_cb, queue_size=1)
+        self.UI_input_sub = rospy.Subscriber(
+            'UI_input', UIin, self.UI_input_cb, queue_size=1)
 
         # ROS service clients
         rospy.wait_for_service('send_cmd')
@@ -79,10 +85,14 @@ class Game:
         self.server_info_client = rospy.ServiceProxy('server_info', ServerInfo)
 
         # ROS action clients
-        self.wait_cmd_client = actionlib.SimpleActionClient('wait_cmd', WaitCmdAction)
-        self.wait_ready_client = actionlib.SimpleActionClient('wait_ready', WaitReadyAction)
-        self.move_piece_client = actionlib.SimpleActionClient('move_piece', MovePieceAction)
-        self.quick_match_client = actionlib.SimpleActionClient('quick_match', QuickMatchAction)
+        self.wait_cmd_client = actionlib.SimpleActionClient(
+            'wait_cmd', WaitCmdAction)
+        self.wait_ready_client = actionlib.SimpleActionClient(
+            'wait_ready', WaitReadyAction)
+        self.move_piece_client = actionlib.SimpleActionClient(
+            'move_piece', MovePieceAction)
+        self.quick_match_client = actionlib.SimpleActionClient(
+            'quick_match', QuickMatchAction)
 
     # Callback functions
     def sensor_cb(self, msg):
@@ -100,7 +110,6 @@ class Game:
                 self.debounce = None
                 self.curr_grid = msg
                 self.process_change(changes)
-                
 
     def UI_input_cb(self, msg):
         # input: 1, 2, 3, 4
@@ -120,9 +129,9 @@ class Game:
                 self.state = States.QUICKMATCH
                 self.UI_output_pub.publish(UIout("QUICKMATCH"))
                 goal = QuickMatchGoal(self.id)
-                self.quick_match_client.send_goal( \
-                    goal, \
-                    transition_cb=self.quick_match_done_cb, \
+                self.quick_match_client.send_goal(
+                    goal,
+                    transition_cb=self.quick_match_done_cb,
                     feedback_cb=self.quick_match_feedback_cb)
             # Lobby
             elif input == 3:
@@ -178,7 +187,8 @@ class Game:
                         self.info_msg.player_id,
                         self.opponent))
                 else:
-                    self.UI_output_pub.publish(UIout("Arrangement error, try again"))
+                    self.UI_output_pub.publish(
+                        UIout("Arrangement error, try again"))
 
         elif self.state == States.PLAYING:
             # Forfeit
@@ -189,10 +199,21 @@ class Game:
         elif self.state == States.PROMPT_FORFEIT:
             # Yes
             if input == 2:
-                # TODO: send forfeit command
+                self.board.forfeit(1)
+                cmd_msg = GameCmd(self.info_msg.player_id,
+                                  self.opponent,
+                                  'FFFF',
+                                  self.board.moves)
+                resp = self.send_cmd_client(cmd_msg)
+                # Try again, this should not happen
+                while not resp.success:
+                    print("Send command failed, trying again (OOPS)")
+                    resp = self.send_cmd_client(cmd_msg)
+
                 self.state = States.ENDGAME
                 self.UI_output_pub.publish(UIout("ENDGAME"))
-                self.UI_output_pub.publish(UIout("YOU LOSE!"))
+                self.UI_output_pub.publish(UIout("YOU FORFEIT!"))
+
             # No
             elif input == 3:
                 self.state = States.PLAYING
@@ -217,7 +238,35 @@ class Game:
             "Waiting for opponent to move...{}".format(feedback.wait_time)))
 
     def wait_cmd_done_cb(self, state, result):
-        pass
+        if state == actionlib.SimpleClientGoalState.SUCCEEDED and \
+           result.opponent != 'timeout':
+            # Forfeit case
+            if result.move == 'FFFF':
+                self.board.forfeit(2)
+                self.state = States.ENDGAME
+                self.UI_output_pub.publish(UIout("ENDGAME"))
+                self.UI_output_pub.publish(UIout("OPPONENT FORFEIT, YOU WON!"))
+            else:
+                start = (int(result.move[0]), int(result.move[1]))
+                end = (int(result.move[2]), int(result.move[3]))
+                if not self.board.check_legal(start, end):
+                    # Should not happen
+                    self.UI_output_pub.publish(UIout("RECEIVED ILLEGAL CMD"))
+                # TODO: Send MovePiece action goal
+                self.board.move(start, end)
+                # Check winning
+                if self.board.get_winner != -1:
+                    self.state = States.ENDGAME
+                    self.UI_output_pub.publish(UIout("ENDGAME"))
+                    if self.board.get_winner == 2:
+                        self.UI_output_pub.publish(UIout("YOU LOSE!"))
+                    elif self.board.get_winner == 0:
+                        self.UI_output_pub.publish(UIout("DRAW!"))
+        else:
+            self.state = States.HOME
+            self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            # TODO: handle the timeout on the other side
+            self.UI_output_pub.publish(UIout("HOME"))
 
     # WaitReady action
     def wait_ready_feedback_cb(self, feedback):
@@ -235,6 +284,7 @@ class Game:
         else:
             self.state = States.HOME
             self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            # TODO: handle the timeout on the other side
             self.UI_output_pub.publish(UIout("HOME"))
 
     # MovePiece action
@@ -272,8 +322,8 @@ class Game:
 
         # ignore during auto moving and not during PLAYING or PROMPT_FORFEIT
         if self.moving or \
-            (self.state != States.PLAYING and \
-            self.state != States.PROMPT_FORFEIT):
+            (self.state != States.PLAYING and
+             self.state != States.PROMPT_FORFEIT):
             return
 
         # auto cancel forfeit if player tries to move
@@ -283,7 +333,8 @@ class Game:
 
         if self.board.turn != 1:
             self.illegal = True
-            self.UI_output_pub.publish(UIout("Illegal Move! Please return the piece!"))
+            self.UI_output_pub.publish(
+                UIout("Illegal Move! Please return the piece!"))
         else:
             # get only one change (multiple also not expected)
             key = next(iter(changes))
@@ -296,23 +347,25 @@ class Game:
             elif (self.selected is not None) and changes[key]:
                 start = (self.selected % W, self.selected // W)
                 end = (key % W, key // W)
-                
+
                 if not self.board.check_legal(start, end):
                     self.illegal = True
-                    self.UI_output_pub.publish(UIout("Illegal Move! Please return the piece!"))
+                    self.UI_output_pub.publish(
+                        UIout("Illegal Move! Please return the piece!"))
                 else:
                     self.board.move(start, end)
-                    cmd = str(start[0]) + str(start[1]) + str(end[0]) + str(end[1])
+                    cmd = str(start[0]) + str(start[1]) + \
+                        str(end[0]) + str(end[1])
                     cmd_msg = GameCmd(self.info_msg.player_id,
-                                    self.opponent,
-                                    cmd,
-                                    self.board.moves)
+                                      self.opponent,
+                                      cmd,
+                                      self.board.moves)
                     resp = self.send_cmd_client(cmd_msg)
                     # Try again, should not happen
                     while not resp.success:
                         print("Send command failed, trying again (OOPS)")
                         resp = self.send_cmd_client(cmd_msg)
-                    
+                    # Check winning
                     if self.board.get_winner == -1:
                         self.wait_cmd_client.send_goal(WaitCmdGoal(
                             self.info_msg.player_id,
@@ -321,10 +374,10 @@ class Game:
                     else:
                         self.state = States.ENDGAME
                         self.UI_output_pub.publish(UIout("ENDGAME"))
-                        if self.board.get_winner == 0:
-                            self.UI_output_pub.publish(UIout("DRAW!"))
-                        else:
+                        if self.board.get_winner == 1:
                             self.UI_output_pub.publish(UIout("YOU WIN!"))
+                        elif self.board.get_winner == 0:
+                            self.UI_output_pub.publish(UIout("DRAW!"))
 
     def check_arrangement(self):
         if self.curr_grid == INIT_GRID:
@@ -333,6 +386,7 @@ class Game:
         else:
             return False
 
-rospy.init_node('game_node', anonymous = True)
+
+rospy.init_node('game_node', anonymous=True)
 game = Game()
 rospy.spin()
