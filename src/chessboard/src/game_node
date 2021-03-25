@@ -13,7 +13,8 @@ from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
     QuickMatchAction, QuickMatchGoal, QuickMatchResult, QuickMatchFeedback, \
-    WaitCmdAction, WaitCmdGoal, WaitCmdResult, WaitCmdFeedback
+    WaitCmdAction, WaitCmdGoal, WaitCmdResult, WaitCmdFeedback, \
+    WaitReadyAction, WaitReadyGoal, WaitReadyResult, WaitReadyFeedback
 
 W = 9
 H = 10
@@ -79,6 +80,7 @@ class Game:
 
         # ROS action clients
         self.wait_cmd_client = actionlib.SimpleActionClient('wait_cmd', WaitCmdAction)
+        self.wait_ready_client = actionlib.SimpleActionClient('wait_ready', WaitReadyAction)
         self.move_piece_client = actionlib.SimpleActionClient('move_piece', MovePieceAction)
         self.quick_match_client = actionlib.SimpleActionClient('quick_match', QuickMatchAction)
 
@@ -172,10 +174,9 @@ class Game:
             # Confirm
             if input == 4:
                 if self.check_arrangement():
-                    # TODO: send action goal to wait for opponent. Continuing
-                    # Should be in the action result callback
-                    self.state = States.PLAYING
-                    self.UI_output_pub.publish(UIout("PLAYING"))
+                    self.wait_ready_client.send_goal(WaitReadyGoal(
+                        self.info_msg.player_id,
+                        self.opponent))
                 else:
                     self.UI_output_pub.publish(UIout("Arrangement error, try again"))
 
@@ -191,6 +192,7 @@ class Game:
                 # TODO: send forfeit command
                 self.state = States.ENDGAME
                 self.UI_output_pub.publish(UIout("ENDGAME"))
+                self.UI_output_pub.publish(UIout("YOU LOSE!"))
             # No
             elif input == 3:
                 self.state = States.PLAYING
@@ -209,13 +211,33 @@ class Game:
         self.info_msg.mode = self.state
         self.player_info_pub.publish(self.info_msg)
 
+    # WaitCmd action
     def wait_cmd_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Waiting for opponent...{}".format(feedback.wait_time)))
+            "Waiting for opponent to move...{}".format(feedback.wait_time)))
 
     def wait_cmd_done_cb(self, state, result):
         pass
 
+    # WaitReady action
+    def wait_ready_feedback_cb(self, feedback):
+        self.UI_output_pub.publish(UIout(
+            "Waiting for opponent to arrange...{}".format(feedback.wait_time)))
+
+    def wait_ready_done_cb(self, state, result):
+        if state == actionlib.SimpleClientGoalState.SUCCEEDED:
+            self.state = States.PLAYING
+            self.UI_output_pub.publish(UIout("PLAYING"))
+            if result.first:
+                self.board.reset(1)
+            else:
+                self.board.reset(2)
+        else:
+            self.state = States.HOME
+            self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            self.UI_output_pub.publish(UIout("HOME"))
+
+    # MovePiece action
     def move_piece_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
             "Current move: {}".format(feedback.current_move)))
@@ -223,6 +245,7 @@ class Game:
     def move_piece_done_cb(self, state, result):
         self.moving = False
 
+    # QuickMatch action
     def quick_match_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
             "Matching opponent...{}".format(feedback.wait_time)))
@@ -239,15 +262,24 @@ class Game:
             self.state = States.MODE_SELECT
             self.UI_output_pub.publish(UIout("MODE SELECT"))
 
+    # Other functions
     def process_change(self, changes):
         # recovery from illegal move
         if self.illegal:
             if self.curr_grid == self.last_move_grid:
                 self.illegal = False
             return
-        # ignore during auto moving and not during PLAYING
-        if self.moving or self.state != States.PLAYING:
+
+        # ignore during auto moving and not during PLAYING or PROMPT_FORFEIT
+        if self.moving or \
+            (self.state != States.PLAYING and \
+            self.state != States.PROMPT_FORFEIT):
             return
+
+        # auto cancel forfeit if player tries to move
+        if self.state == States.PROMPT_FORFEIT:
+            self.state = States.PLAYING
+            self.UI_output_pub.publish(UIout("PLAYING"))
 
         if self.board.turn != 1:
             self.illegal = True
@@ -276,12 +308,24 @@ class Game:
                                     cmd,
                                     self.board.moves)
                     resp = self.send_cmd_client(cmd_msg)
-                    if resp.success:
+                    # Try again, should not happen
+                    while not resp.success:
+                        print("Send command failed, trying again (OOPS)")
+                        resp = self.send_cmd_client(cmd_msg)
+                    
+                    if self.board.get_winner == -1:
                         self.wait_cmd_client.send_goal(WaitCmdGoal(
                             self.info_msg.player_id,
                             self.opponent,
                             self.board.moves))
-        
+                    else:
+                        self.state = States.ENDGAME
+                        self.UI_output_pub.publish(UIout("ENDGAME"))
+                        if self.board.get_winner == 0:
+                            self.UI_output_pub.publish(UIout("DRAW!"))
+                        else:
+                            self.UI_output_pub.publish(UIout("YOU WIN!"))
+
     def check_arrangement(self):
         if self.curr_grid == INIT_GRID:
             self.last_move_grid = INIT_GRID

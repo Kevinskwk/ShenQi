@@ -43,7 +43,7 @@ class Board:
         '''
         print('Game start!\nPlayer1: uppercase letters; Player2: lowercase letters\nType "q" to quit, "r" to restart')
 
-    def concede(self, player):
+    def forfeit(self, player):
         self.winner = 3 - player
 
     def move(self, start, end):

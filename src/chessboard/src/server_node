@@ -8,7 +8,8 @@ import rospy
 import actionlib
 from chess_msgs.msg import PlayerInfo
 from chess_msgs.msg import QuickMatchAction, QuickMatchFeedback, QuickMatchResult, \
-                           WaitCmdAction, WaitCmdFeedback, WaitCmdResult
+                           WaitCmdAction, WaitCmdFeedback, WaitCmdResult, \
+                           WaitReadyAction, WaitReadyFeedback, WaitReadyResult
 from chess_msgs.srv import SendCmd, SendCmdResponse, \
                            ServerInfo, ServerInfoResponse
 
@@ -87,6 +88,47 @@ class WaitCmdServer(object):
             rate.sleep()
 
         self._as.set_aborted(WaitCmdResult('timeout'))
+
+class WaitReadyServer(object):
+    def __init__(self, name):
+        self._action_name = name
+        self._as = actionlib.SimpleActionServer(
+            self._action_name,
+            WaitReadyAction,
+            execute_cb=self.execute_cb,
+            auto_start=False)
+        self._as.start()
+      
+    def execute_cb(self, goal):
+        rate = rospy.Rate(1)
+        game_id = min(goal.sender, goal.target) + max(goal.sender, goal.target)
+        max_time = 600
+        i = 0
+        # The player ready first will be playing first
+        ready = db.child('games').child(game_id).child('ready').get().val()
+        # opponent not ready yet
+        if ready is None or len(ready) > 1:
+            db.child('games').child(game_id).child('ready').set({0: goal.sender})
+            # wait for opponent
+            max_time = 600
+            i = 0
+            while i < max_time:
+                ready = db.child('games').child(game_id).child('ready').get().val()
+                if len(ready) < 2:
+                    self._as.publish_feedback(WaitReadyFeedback(i))
+                else:  # Opponent ready
+                    _as.set_succeeded(WaitReadyResult(True))
+                    db.child('games').child(game_id).child('ready').remove()
+                    return
+                i += 1
+                rate.sleep()
+            # time out
+            self._as.set_aborted(WaitReadyResult(False))
+            db.child('games').child(game_id).child('ready').remove()
+        # Opponent ready already
+        else:
+            db.child('games').child(game_id).child('ready').update({1: goal.sender})
+            _as.set_succeeded(WaitReadyResult(False))
 
 # ROS subscriber
 player_sub = rospy.Subscriber('player_info', PlayerInfo, player_cb, queue_size=1)
