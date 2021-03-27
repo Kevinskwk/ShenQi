@@ -1,0 +1,9 @@
+# Request
+string requester
+string opponent
+---
+# Result
+bool success
+---
+# Feedback
+uint32 wait_time

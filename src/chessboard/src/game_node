@@ -16,7 +16,8 @@ from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
     QuickMatchAction, QuickMatchGoal, QuickMatchResult, QuickMatchFeedback, \
     WaitCmdAction, WaitCmdGoal, WaitCmdResult, WaitCmdFeedback, \
-    WaitReadyAction, WaitReadyGoal, WaitReadyResult, WaitReadyFeedback
+    WaitReadyAction, WaitReadyGoal, WaitReadyResult, WaitReadyFeedback, \
+    LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult
 
 W = 9
 H = 10
@@ -98,6 +99,8 @@ class Game:
             'move_piece', MovePieceAction)
         self.quick_match_client = actionlib.SimpleActionClient(
             'quick_match', QuickMatchAction)
+        self.lobby_request_client = actionlib.SimpleActionClient(
+            'lobby_request', LobbyRequestAction)
 
     # Callback functions
     def sensor_cb(self, msg):
@@ -139,7 +142,7 @@ class Game:
             elif input == 2:
                 self.state = States.QUICKMATCH
                 self.UI_output_pub.publish(UIout("QUICKMATCH"))
-                goal = QuickMatchGoal(self.id)
+                goal = QuickMatchGoal(info_msg.player_id)
                 self.quick_match_client.send_goal(
                     goal,
                     transition_cb=self.quick_match_done_cb,
@@ -168,14 +171,18 @@ class Game:
                 elif input == 4:
                     self.lobby_input.append('d')
             if len(self.lobby_input == 4):
+                goal = LobbyRequestGoal(info_msg.player_id, self.lobby_input)
+                self.lobby_request_client.send_goal(
+                    goal,
+                    transition_cb=self.lobby_request_done_cb,
+                    feedback_cb=self.lobby_request_feedback_cb)
                 self.state = States.LOBBY_WAIT
                 self.UI_output_pub.publish(UIout("LOBBY WAIT"))
-                # TODO: send request match action goal
 
         elif self.state == States.LOBBY_WAIT:
             # Back
             if input == 1:
-                # TODO cancel request match goal
+                self.lobby_request_client.cancel_all_goals()
                 self.state = States.MODE_SELECT
                 self.UI_output_pub.publish(UIout("MODE SELECT"))
 
@@ -240,7 +247,7 @@ class Game:
                 # TODO: send rematch action goal and wait for response
                 self.UI_output_pub.publish(UIout("REMATCH"))
 
-        self.info_msg.mode = self.state
+        self.info_msg.mode = self.state.value
         self.player_info_pub.publish(self.info_msg)
 
     # WaitCmd action
@@ -315,6 +322,22 @@ class Game:
         if state == actionlib.SimpleClientGoalState.SUCCEEDED and \
            result.opponent != 'timeout':
             self.opponent = result.opponent
+            rospy.log_info("Matched with: {}".format(self.opponent))
+            self.state = States.ARRANGE
+            self.UI_output_pub.publish(UIout("ARRANGE"))
+        else:
+            rospy.log_info("Failed to find an opponent")
+            self.state = States.MODE_SELECT
+            self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+    # LobbyRequest action
+    def lobby_request_feedback_cb(self, feedback):
+        self.UI_output_pub.publish(UIout(
+            "Matching opponent...{}".format(feedback.wait_time)))
+
+    def lobby_request_done_cb(self, state, result):
+        if state == actionlib.SimpleClientGoalState.SUCCEEDED and result.success:
+            self.opponent = self.lobby_input
             rospy.log_info("Matched with: {}".format(self.opponent))
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout("ARRANGE"))
