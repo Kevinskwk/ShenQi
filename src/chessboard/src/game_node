@@ -17,7 +17,8 @@ from chess_msgs.msg import \
     QuickMatchAction, QuickMatchGoal, QuickMatchResult, QuickMatchFeedback, \
     WaitCmdAction, WaitCmdGoal, WaitCmdResult, WaitCmdFeedback, \
     WaitReadyAction, WaitReadyGoal, WaitReadyResult, WaitReadyFeedback, \
-    LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult
+    LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult, \
+    RematchAction, RematchGoal, RematchFeedback, RematchResult
 
 W = 9
 H = 10
@@ -95,6 +96,8 @@ class Game:
             'wait_cmd', WaitCmdAction)
         self.wait_ready_client = actionlib.SimpleActionClient(
             'wait_ready', WaitReadyAction)
+        self.rematch_client = actionlib.SimpleActionClient(
+            'rematch', RematchAction)
         self.move_piece_client = actionlib.SimpleActionClient(
             'move_piece', MovePieceAction)
         self.quick_match_client = actionlib.SimpleActionClient(
@@ -240,11 +243,14 @@ class Game:
         elif self.state == States.ENDGAME:
             # Quit
             if input == 1 or input == 3:
+                self.opponent = ''
                 self.state = States.HOME
                 self.UI_output_pub.publish(UIout("HOME"))
             # Rematch
             if input == 2:
-                # TODO: send rematch action goal and wait for response
+                self.rematch_client.send_goal(RematchGoal(
+                    self.info_msg.player_id,
+                    self.opponent))
                 self.UI_output_pub.publish(UIout("REMATCH"))
 
         self.info_msg.mode = self.state.value
@@ -302,6 +308,21 @@ class Game:
         else:
             self.state = States.HOME
             self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            # TODO: handle the timeout on the other side
+            self.UI_output_pub.publish(UIout("HOME"))
+
+    # Rematch action
+    def rematch_feedback_cb(self, feedback):
+        self.UI_output_pub.publish(UIout(
+            "Waiting for opponent to accept...{}".format(feedback.wait_time)))
+
+    def rematch_done_cb(self, state, result):
+        if state == actionlib.SimpleClientGoalState.SUCCEEDED:
+            self.state = States.ARRANGE
+            self.UI_output_pub.publish(UIout("ARRANGE"))
+        else:
+            self.UI_output_pub.publish(UIout("Opponent refused rematch"))
+            self.state = States.HOME
             # TODO: handle the timeout on the other side
             self.UI_output_pub.publish(UIout("HOME"))
 

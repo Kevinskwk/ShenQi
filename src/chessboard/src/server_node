@@ -11,7 +11,8 @@ from chess_msgs.msg import \
     QuickMatchAction, QuickMatchFeedback, QuickMatchResult, \
     WaitCmdAction, WaitCmdFeedback, WaitCmdResult, \
     WaitReadyAction, WaitReadyFeedback, WaitReadyResult, \
-    LobbyRequestAction, LobbyRequestFeedback, LobbyRequestResult
+    LobbyRequestAction, LobbyRequestFeedback, LobbyRequestResult, \
+    RematchAction, RematchFeedback, RematchResult
 from chess_msgs.srv import SendCmd, SendCmdResponse, \
     ServerInfo, ServerInfoResponse
 
@@ -140,7 +141,7 @@ class WaitCmdServer(object):
             if moves is None or len(moves) < goal.step + 1:
                 self._as.publish_feedback(WaitCmdFeedback(i))
             else:
-                _as.set_succeeded(WaitCmdResult(moves[goal.step]))
+                self._as.set_succeeded(WaitCmdResult(moves[goal.step]))
                 return
             i += 1
             rate.sleep()
@@ -166,7 +167,7 @@ class WaitReadyServer(object):
         # The player ready first will be playing first
         ready = db.child('games').child(game_id).child('ready').get().val()
         # opponent not ready yet
-        if ready is None or len(ready) > 1:
+        if ready is None or len(ready) < 1:
             db.child('games').child(game_id).child(
                 'ready').set({0: goal.sender})
             # wait for opponent
@@ -178,7 +179,7 @@ class WaitReadyServer(object):
                 if len(ready) < 2:
                     self._as.publish_feedback(WaitReadyFeedback(i))
                 else:  # Opponent ready
-                    _as.set_succeeded(WaitReadyResult(True))
+                    self._as.set_succeeded(WaitReadyResult(True))
                     db.child('games').child(game_id).child('ready').remove()
                     return
                 i += 1
@@ -186,12 +187,44 @@ class WaitReadyServer(object):
             # time out
             self._as.set_aborted(WaitReadyResult(False))
             db.child('games').child(game_id).child('ready').remove()
+            return
         # Opponent ready already
         else:
             db.child('games').child(game_id).child(
                 'ready').update({1: goal.sender})
-            _as.set_succeeded(WaitReadyResult(False))
+            self._as.set_succeeded(WaitReadyResult(False))
 
+class RematchServer(object):
+    def __init__(self, name):
+        self._action_name = name
+        self._as = actionlib.SimpleActionServer(
+            self._action_name,
+            RematchAction,
+            execute_cb=self.execute_cb,
+            auto_start=False)
+        self._as.start()
+
+    def execute_cb(self, goal):
+        rate = rospy.Rate(1)
+        game_id = min(goal.sender, goal.target) + max(goal.sender, goal.target)
+        max_time = 300
+        i = 0
+        db.child('games').child(game_id).child('rematch').update({goal.sender: True})
+
+        while i < max_time:
+            # opponent refuse
+            if db.child('users').child(goal.target).child('state').get().val() != 10:
+                break
+
+            rematch = db.child('games').child(game_id).child('rematch').get().val()
+            # opponent accept
+            if rematch is not None and len(rematch) == 2:
+                self._as.set_succeeded(RematchResult(True))
+            else:
+                self._as.publish_feedback(RematchFeedback(i))
+
+        self._as.set_aborted(RematchResult(False))
+        db.child('games').child(game_id).child('rematch').remove()
 
 # ROS subscriber
 player_sub = rospy.Subscriber(
@@ -233,6 +266,8 @@ def handle_server_info(req):
 rospy.init_node('server_node', anonymous=False)
 quick_match_server = QuickMatchServer('quick_match')
 wait_cmd_server = WaitCmdServer('wait_cmd')
+wait_ready_server = WaitReadyServer('wait_ready')
+rematch_server = RematchServer('rematch')
 lobby_request_server = LobbyRequestServer('lobby_request')
 
 rospy.spin()
