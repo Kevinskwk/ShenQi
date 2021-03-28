@@ -1,5 +1,5 @@
 <launch>
-    <group ns="board1">
+    <group>
         <node name="game_node" pkg="chessboard" type="game_node" output="screen" />
         <node name="move_piece_server" pkg="chessboard" type="move_piece_server" output="screen" />
         <node name="sensor_node" pkg="chessboard" type="sensor_node" output="screen" />

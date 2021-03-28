@@ -229,7 +229,7 @@ class Game:
                 cmd_msg = GameCmd(self.player_id,
                                   self.opponent,
                                   'FFFF',
-                                  self.board.moves)
+                                  self.board.get_moves())
                 resp = self.send_cmd_client(cmd_msg)
                 # Try again, this should not happen
                 while not resp.success:
@@ -257,7 +257,7 @@ class Game:
                 self.rematch_client.send_goal(
                     goal,
                     done_cb=self.rematch_done_cb,
-                    feedback_cd=self.rematch_feedback_cb)
+                    feedback_cb=self.rematch_feedback_cb)
                 self.UI_output_pub.publish(UIout("REMATCH"))
 
         self.pub_state()
@@ -268,8 +268,7 @@ class Game:
             "Waiting for opponent to move...{}".format(feedback.wait_time)))
 
     def wait_cmd_done_cb(self, state, result):
-        if state == actionlib.SimpleClientGoalState.SUCCEEDED and \
-           result.opponent != 'timeout':
+        if state == 3 and result.move != 'timeout':
             # Forfeit case
             if result.move == 'FFFF':
                 self.board.forfeit(2)
@@ -285,12 +284,14 @@ class Game:
                 # TODO: Send MovePiece action goal
                 self.board.move(start, end)
                 # Check winning
-                if self.board.get_winner != -1:
+                if self.board.get_winner() != -1:
                     self.state = States.ENDGAME
                     self.UI_output_pub.publish(UIout("ENDGAME"))
-                    if self.board.get_winner == 2:
+                    if self.board.get_winner() == 2:
                         self.UI_output_pub.publish(UIout("YOU LOSE!"))
-                    elif self.board.get_winner == 0:
+                    elif self.board.get_winner() == 1:
+                        self.UI_output_pub.publish(UIout("YOU WIN!"))
+                    elif self.board.get_winner() == 0:
                         self.UI_output_pub.publish(UIout("DRAW!"))
         else:
             self.state = States.HOME
@@ -313,6 +314,7 @@ class Game:
                 self.board.reset(1)
             else:
                 self.board.reset(2)
+            self.board.log_info()
         else:
             self.state = States.HOME
             self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
@@ -409,7 +411,7 @@ class Game:
             self.state = States.PLAYING
             self.UI_output_pub.publish(UIout("PLAYING"))
 
-        if self.board.turn != 1:
+        if self.board.get_turn() != 1:
             self.illegal = True
             self.UI_output_pub.publish(
                 UIout("Illegal Move! Please return the piece!"))
@@ -441,28 +443,30 @@ class Game:
             cmd_msg = GameCmd(self.player_id,
                               self.opponent,
                               cmd,
-                              self.board.moves)
+                              self.board.get_moves() - 1)
             resp = self.send_cmd_client(cmd_msg)
             # Try again, should not happen
             while not resp.success:
                 print("Send command failed, trying again (OOPS)")
                 resp = self.send_cmd_client(cmd_msg)
             # Check winning
-            if self.board.get_winner == -1:
+            if self.board.get_winner() == -1:
                 goal = WaitCmdGoal(
                     self.player_id,
                     self.opponent,
-                    self.board.moves)
+                    self.board.get_moves())
                 self.wait_cmd_client.send_goal(
                     goal,
                     done_cb=self.wait_cmd_done_cb,
-                    feedback_cd=self.wait_cmd_feedback_cb)
+                    feedback_cb=self.wait_cmd_feedback_cb)
             else:
                 self.state = States.ENDGAME
                 self.UI_output_pub.publish(UIout("ENDGAME"))
-                if self.board.get_winner == 1:
+                if self.board.get_winner() == 2:
+                    self.UI_output_pub.publish(UIout("YOU LOSE!"))
+                elif self.board.get_winner() == 1:
                     self.UI_output_pub.publish(UIout("YOU WIN!"))
-                elif self.board.get_winner == 0:
+                elif self.board.get_winner() == 0:
                     self.UI_output_pub.publish(UIout("DRAW!"))
         self.pub_state()
 

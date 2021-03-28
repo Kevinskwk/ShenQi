@@ -64,6 +64,8 @@ class Board:
             self.turn = 0
 
         self.moves += 1
+        self.print_board()
+        self.log_info()
 
     def check_legal(self, start, end):
         # check if coordinate in range
@@ -222,16 +224,14 @@ class Board:
         else:
             return False
 
-    def check_legal(self, cmd):
-        start = (int(cmd[0]), int(cmd[1]))
-        end = (int(cmd[2]), int(cmd[3]))
-        return self.check_legal(start, end)
-
     def get_winner(self):
         return self.winner
 
     def get_turn(self):
         return self.turn
+
+    def get_moves(self):
+        return self.moves
 
     def log_info(self):
         print("Player{}'s turn.".format(self.turn))
@@ -244,8 +244,9 @@ def main():
     board = Board()
     board.reset(1)
     board.print_board()
+    board.log_info()
     while(True):
-        board.log_info()
+        
         cmd = str(input("Please type command (xyx'y'): "))
         if not cmd.isdecimal or len(cmd) != 4:
             if cmd == 'q':
@@ -273,7 +274,6 @@ def main():
             continue
 
         board.move(start, end)
-        board.print_board()
 
 
 if __name__ == "__main__":

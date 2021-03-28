@@ -190,13 +190,13 @@ class WaitReadyServer(object):
                     self._as.publish_feedback(WaitReadyFeedback(i))
                 else:  # Opponent ready
                     self._as.set_succeeded(WaitReadyResult(True))
-                    db.child('games').child(game_id).child('ready').remove()
+                    db.child('games').child(game_id).child('ready').set({})
                     return
                 i += 1
                 rate.sleep()
             # time out
             self._as.set_aborted(WaitReadyResult(False))
-            db.child('games').child(game_id).child('ready').remove()
+            db.child('games').child(game_id).child('ready').set({})
             return
         # Opponent ready already
         else:
@@ -236,7 +236,7 @@ class RematchServer(object):
             rate.sleep()
 
         self._as.set_aborted(RematchResult(False))
-        db.child('games').child(game_id).child('rematch').remove()
+        db.child('games').child(game_id).child('rematch').set({})
 
 # callback functions
 def player_cb(msg):
@@ -261,7 +261,7 @@ def handle_send_cmd(req):
 
         db.child('games').child(game_id).child(
             'moves').update({req.cmd.step: req.cmd.move})
-        return SendCmdResponse(True)
+    return SendCmdResponse(True)
 
 def handle_server_info(req):
     pass

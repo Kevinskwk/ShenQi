@@ -5,12 +5,13 @@ from std_msgs.msg import String
 
 test_pub = rospy.Publisher('test_cmd', String, queue_size=10)
 
-rospy.init_node('test_node', anonymous = True)
+rospy.init_node('test_node', anonymous=False)
 
+print("Type 'q' to quit")
 while (True):
-    cmd = int(input("Cmd: "))
+    cmd = str(input("Cmd: "))
+    if cmd == 'q':
+        break
     msg = String()
     msg.data = cmd
     test_pub.publish(msg)
-
-# rospy.spin()
