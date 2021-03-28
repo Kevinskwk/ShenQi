@@ -17,14 +17,20 @@ from chess_msgs.srv import SendCmd, SendCmdResponse, \
     ServerInfo, ServerInfoResponse
 
 import pyrebase
-from .credential import config
+from credential import config
 
 # Firebase stuff
 firebase = pyrebase.initialize_app(config)
 db = firebase.database()
 
-# ROS action server
+# helper function
+def reset_game(player1, player2):
+    game_id = min(player1, player2) + max(player1, player2)
+    db.child('games').child(game_id).child('ready').set({})
+    db.child('games').child(game_id).child('rematch').set({})
+    db.child('games').child(game_id).child('moves').set({})
 
+# ROS action servers
 
 class QuickMatchServer(object):
     def __init__(self, name):
@@ -51,6 +57,7 @@ class QuickMatchServer(object):
                         db.child('users').child(request).update(
                             {'request': goal.requester})
                         self._as.set_succeeded(QuickMatchResult(request))
+                        reset_game(goal.requester, request)
                         return
 
                 elif user.val().get('state') == 2 and \
@@ -61,6 +68,7 @@ class QuickMatchServer(object):
                     db.child('users').child(user.key()).update(
                         {'request': goal.requester})
                     self._as.set_succeeded(QuickMatchResult(user.key()))
+                    reset_game(goal.requester, user.key())
                     return
 
             self._as.publish_feedback(QuickMatchFeedback(i))
@@ -91,29 +99,31 @@ class LobbyRequestServer(object):
         while i < max_time:
             opponent = db.child('users').child(goal.opponent).get()
             if opponent.val() is None:
-                self._as.set_aborted(LobbyRequestResult(False))
+                self._as.set_aborted(LobbyRequestResult(False, 'User not exist'))
                 return
 
             state = opponent.val().get('state')
             request = opponent.val().get('request')
             if state is not None and (state >= 1 and state <= 5) and \
                (request is None or request == '' or request == goal.requester):
-                opponent.update({'request': goal.requester})
+                db.child('users').child(goal.opponent).update(
+                    {'request': goal.requester})
             else:
-                self._as.set_aborted(LobbyRequestResult(False))
+                self._as.set_aborted(LobbyRequestResult(False, 'User now busy'))
                 return
 
             # check if self is being match by the desired opponent:
             me = db.child('users').child(goal.requester).child('request').get()
             if me.val() is not None and me.val() == goal.opponent: # matched
-                self._as.set_succeeded(LobbyRequestResult(True))
+                self._as.set_succeeded(LobbyRequestResult(True, ''))
+                reset_game(goal.requester, goal.opponent)
                 return
 
             self._as.publish_feedback(QuickMatchFeedback(i))
             i += 1
             rate.sleep()
 
-        self._as.set_aborted(LobbyRequestResult(False))
+        self._as.set_aborted(LobbyRequestResult(False, 'timeout'))
 
     def preempt_cb(self):
         db.child('users').child(self.opponent).update({'request': ''})
@@ -222,17 +232,11 @@ class RematchServer(object):
                 self._as.set_succeeded(RematchResult(True))
             else:
                 self._as.publish_feedback(RematchFeedback(i))
+            i += 1
+            rate.sleep()
 
         self._as.set_aborted(RematchResult(False))
         db.child('games').child(game_id).child('rematch').remove()
-
-# ROS subscriber
-player_sub = rospy.Subscriber(
-    'player_info', PlayerInfo, player_cb, queue_size=1)
-
-# ROS service
-send_cmd_srv = rospy.Service('send_cmd', SendCmd, handle_send_cmd)
-server_info_srv = rospy.Service('server_info', ServerInfo, handle_server_info)
 
 # callback functions
 def player_cb(msg):
@@ -262,6 +266,13 @@ def handle_send_cmd(req):
 def handle_server_info(req):
     pass
 
+# ROS subscriber
+player_sub = rospy.Subscriber(
+    'player_info', PlayerInfo, player_cb, queue_size=1)
+
+# ROS service
+send_cmd_srv = rospy.Service('send_cmd', SendCmd, handle_send_cmd)
+server_info_srv = rospy.Service('server_info', ServerInfo, handle_server_info)
 
 rospy.init_node('server_node', anonymous=False)
 quick_match_server = QuickMatchServer('quick_match')

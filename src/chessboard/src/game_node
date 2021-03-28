@@ -58,6 +58,7 @@ class Game:
         self.curr_grid = [False] * 90
         self.last_move_grid = [False] * 90
         self.illegal = False
+        self.moving = False
         self.selected = None
         self.debounce = None
 
@@ -145,10 +146,10 @@ class Game:
             elif input == 2:
                 self.state = States.QUICKMATCH
                 self.UI_output_pub.publish(UIout("QUICKMATCH"))
-                goal = QuickMatchGoal(info_msg.player_id)
+                goal = QuickMatchGoal(self.info_msg.player_id)
                 self.quick_match_client.send_goal(
                     goal,
-                    transition_cb=self.quick_match_done_cb,
+                    done_cb=self.quick_match_done_cb,
                     feedback_cb=self.quick_match_feedback_cb)
             # Lobby
             elif input == 3:
@@ -166,18 +167,18 @@ class Game:
         elif self.state == States.LOBBY_INPUT:
             if len(self.lobby_input) < 4:
                 if input == 1:
-                    self.lobby_input.append('a')
+                    self.lobby_input += 'a'
                 elif input == 2:
-                    self.lobby_input.append('b')
+                    self.lobby_input += 'b'
                 elif input == 3:
-                    self.lobby_input.append('c')
+                    self.lobby_input += 'c'
                 elif input == 4:
-                    self.lobby_input.append('d')
-            if len(self.lobby_input == 4):
-                goal = LobbyRequestGoal(info_msg.player_id, self.lobby_input)
+                    self.lobby_input += 'd'
+            if len(self.lobby_input) == 4:
+                goal = LobbyRequestGoal(self.info_msg.player_id, self.lobby_input)
                 self.lobby_request_client.send_goal(
                     goal,
-                    transition_cb=self.lobby_request_done_cb,
+                    done_cb=self.lobby_request_done_cb,
                     feedback_cb=self.lobby_request_feedback_cb)
                 self.state = States.LOBBY_WAIT
                 self.UI_output_pub.publish(UIout("LOBBY WAIT"))
@@ -204,9 +205,13 @@ class Game:
             # Confirm
             if input == 4:
                 if self.check_arrangement():
-                    self.wait_ready_client.send_goal(WaitReadyGoal(
+                    goal = WaitReadyGoal(
                         self.info_msg.player_id,
-                        self.opponent))
+                        self.opponent)
+                    self.wait_ready_client.send_goal(
+                        goal,
+                        done_cb=self.wait_ready_done_cb,
+                        feedback_cb=self.wait_ready_feedback_cb)
                 else:
                     self.UI_output_pub.publish(
                         UIout("Arrangement error, try again"))
@@ -248,13 +253,16 @@ class Game:
                 self.UI_output_pub.publish(UIout("HOME"))
             # Rematch
             if input == 2:
-                self.rematch_client.send_goal(RematchGoal(
+                goal = RematchGoal(
                     self.info_msg.player_id,
-                    self.opponent))
+                    self.opponent)
+                self.rematch_client.send_goal(
+                    goal,
+                    done_cb=self.rematch_done_cb,
+                    feedback_cd=self.rematch_feedback_cb)
                 self.UI_output_pub.publish(UIout("REMATCH"))
 
-        self.info_msg.mode = self.state.value
-        self.player_info_pub.publish(self.info_msg)
+        self.pub_state()
 
     # WaitCmd action
     def wait_cmd_feedback_cb(self, feedback):
@@ -292,13 +300,15 @@ class Game:
             # TODO: handle the timeout on the other side
             self.UI_output_pub.publish(UIout("HOME"))
 
+        self.pub_state()
+
     # WaitReady action
     def wait_ready_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
             "Waiting for opponent to arrange...{}".format(feedback.wait_time)))
 
     def wait_ready_done_cb(self, state, result):
-        if state == actionlib.SimpleClientGoalState.SUCCEEDED:
+        if state == 3:
             self.state = States.PLAYING
             self.UI_output_pub.publish(UIout("PLAYING"))
             if result.first:
@@ -311,13 +321,15 @@ class Game:
             # TODO: handle the timeout on the other side
             self.UI_output_pub.publish(UIout("HOME"))
 
+        self.pub_state()
+
     # Rematch action
     def rematch_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
             "Waiting for opponent to accept...{}".format(feedback.wait_time)))
 
     def rematch_done_cb(self, state, result):
-        if state == actionlib.SimpleClientGoalState.SUCCEEDED:
+        if state == 3:
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout("ARRANGE"))
         else:
@@ -325,6 +337,8 @@ class Game:
             self.state = States.HOME
             # TODO: handle the timeout on the other side
             self.UI_output_pub.publish(UIout("HOME"))
+
+        self.pub_state()
 
     # MovePiece action
     def move_piece_feedback_cb(self, feedback):
@@ -340,16 +354,18 @@ class Game:
             "Matching opponent...{}".format(feedback.wait_time)))
 
     def quick_match_done_cb(self, state, result):
-        if state == actionlib.SimpleClientGoalState.SUCCEEDED and \
-           result.opponent != 'timeout':
+        if state == 3 and result.opponent != 'timeout':
             self.opponent = result.opponent
-            rospy.log_info("Matched with: {}".format(self.opponent))
+            self.UI_output_pub.publish(
+                UIout("Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout("ARRANGE"))
         else:
-            rospy.log_info("Failed to find an opponent")
+            self.UI_output_pub.publish(UIout("Failed to find an opponent"))
             self.state = States.MODE_SELECT
             self.UI_output_pub.publish(UIout("MODE SELECT"))
+
+        self.pub_state()
 
     # LobbyRequest action
     def lobby_request_feedback_cb(self, feedback):
@@ -357,17 +373,26 @@ class Game:
             "Matching opponent...{}".format(feedback.wait_time)))
 
     def lobby_request_done_cb(self, state, result):
-        if state == actionlib.SimpleClientGoalState.SUCCEEDED and result.success:
+        if state == 3 and result.success:
             self.opponent = self.lobby_input
-            rospy.log_info("Matched with: {}".format(self.opponent))
+            self.UI_output_pub.publish(
+                UIout("Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout("ARRANGE"))
         else:
-            rospy.log_info("Failed to find an opponent")
+            self.UI_output_pub.publish(
+                UIout("Failed to find user [{}]".format(self.lobby_input)))
+            self.UI_output_pub.publish(UIout(str(result.msg)))
             self.state = States.MODE_SELECT
             self.UI_output_pub.publish(UIout("MODE SELECT"))
 
+        self.pub_state()
+
     # Other functions
+    def pub_state(self):
+        self.info_msg.mode = self.state.value
+        self.player_info_pub.publish(self.info_msg)
+
     def process_change(self, changes):
         # recovery from illegal move
         if self.illegal:
@@ -403,6 +428,7 @@ class Game:
                 start = (self.selected % W, self.selected // W)
                 end = (key % W, key // W)
                 self.process_move(start, end)
+        self.pub_state()
 
     def process_move(self, start, end, test=False):
         if not self.board.check_legal(start, end):
@@ -425,10 +451,14 @@ class Game:
                 resp = self.send_cmd_client(cmd_msg)
             # Check winning
             if self.board.get_winner == -1:
-                self.wait_cmd_client.send_goal(WaitCmdGoal(
+                goal = WaitCmdGoal(
                     self.info_msg.player_id,
                     self.opponent,
-                    self.board.moves))
+                    self.board.moves)
+                self.wait_cmd_client.send_goal(
+                    goal,
+                    done_cb=self.wait_cmd_done_cb,
+                    feedback_cd=self.wait_cmd_feedback_cb)
             else:
                 self.state = States.ENDGAME
                 self.UI_output_pub.publish(UIout("ENDGAME"))
@@ -436,6 +466,7 @@ class Game:
                     self.UI_output_pub.publish(UIout("YOU WIN!"))
                 elif self.board.get_winner == 0:
                     self.UI_output_pub.publish(UIout("DRAW!"))
+        self.pub_state()
 
     def check_arrangement(self):
         if self.curr_grid == INIT_GRID:

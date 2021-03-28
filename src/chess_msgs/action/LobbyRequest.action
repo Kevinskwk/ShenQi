@@ -4,6 +4,7 @@ string opponent
 ---
 # Result
 bool success
+string msg
 ---
 # Feedback
 uint32 wait_time

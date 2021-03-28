@@ -8,14 +8,14 @@ def UI_output_cb(msg):
 
 UI_input_pub = rospy.Publisher('UI_input', UIin, queue_size=10)
 
-UI_output_sub = rospy.Subscriber('UI_output', UIout, UI_output_cb, queue_size=1)
+UI_output_sub = rospy.Subscriber('UI_output', UIout, UI_output_cb, queue_size=10)
 
 rospy.init_node('UI_node', anonymous = True)
+rate = rospy.Rate(2)
 
 while (True):
     button = int(input("Press button: "))
     msg = UIin()
     msg.button = button
     UI_input_pub.publish(msg)
-
-# rospy.spin()
+    rospy.sleep(0.2)
