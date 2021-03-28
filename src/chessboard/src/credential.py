@@ -4,3 +4,5 @@ config = {
   "databaseURL": "https://databaseName.firebaseio.com",
   "storageBucket": "projectId.appspot.com"
 }
+
+user_id = 'abcd'

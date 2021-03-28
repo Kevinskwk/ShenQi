@@ -19,6 +19,7 @@ from chess_msgs.msg import \
     WaitReadyAction, WaitReadyGoal, WaitReadyResult, WaitReadyFeedback, \
     LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult, \
     RematchAction, RematchGoal, RematchFeedback, RematchResult
+from credential import user_id
 
 W = 9
 H = 10
@@ -51,7 +52,7 @@ class States(enum.Enum):
 
 class Game:
 
-    def __init__(self):
+    def __init__(self, id):
         # Chessboard
         # NOTE: current player is always player 1 in the game
         self.board = Board()
@@ -66,9 +67,10 @@ class Game:
         self.curr_grid = INIT_GRID
 
         # Metadata
+        self.player_id = id
         self.state = States.HOME
         self.info_msg = PlayerInfo()
-        self.info_msg.player_id = 'abcd'
+        self.info_msg.player_id = self.player_id
         self.lobby_input = ''
         self.opponent = ''
 
@@ -146,7 +148,7 @@ class Game:
             elif input == 2:
                 self.state = States.QUICKMATCH
                 self.UI_output_pub.publish(UIout("QUICKMATCH"))
-                goal = QuickMatchGoal(self.info_msg.player_id)
+                goal = QuickMatchGoal(self.player_id)
                 self.quick_match_client.send_goal(
                     goal,
                     done_cb=self.quick_match_done_cb,
@@ -175,7 +177,7 @@ class Game:
                 elif input == 4:
                     self.lobby_input += 'd'
             if len(self.lobby_input) == 4:
-                goal = LobbyRequestGoal(self.info_msg.player_id, self.lobby_input)
+                goal = LobbyRequestGoal(self.player_id, self.lobby_input)
                 self.lobby_request_client.send_goal(
                     goal,
                     done_cb=self.lobby_request_done_cb,
@@ -205,9 +207,7 @@ class Game:
             # Confirm
             if input == 4:
                 if self.check_arrangement():
-                    goal = WaitReadyGoal(
-                        self.info_msg.player_id,
-                        self.opponent)
+                    goal = WaitReadyGoal(self.player_id, self.opponent)
                     self.wait_ready_client.send_goal(
                         goal,
                         done_cb=self.wait_ready_done_cb,
@@ -226,7 +226,7 @@ class Game:
             # Yes
             if input == 2:
                 self.board.forfeit(1)
-                cmd_msg = GameCmd(self.info_msg.player_id,
+                cmd_msg = GameCmd(self.player_id,
                                   self.opponent,
                                   'FFFF',
                                   self.board.moves)
@@ -253,9 +253,7 @@ class Game:
                 self.UI_output_pub.publish(UIout("HOME"))
             # Rematch
             if input == 2:
-                goal = RematchGoal(
-                    self.info_msg.player_id,
-                    self.opponent)
+                goal = RematchGoal(self.player_id, self.opponent)
                 self.rematch_client.send_goal(
                     goal,
                     done_cb=self.rematch_done_cb,
@@ -440,10 +438,10 @@ class Game:
             self.board.move(start, end)
             cmd = str(start[0]) + str(start[1]) + \
                 str(end[0]) + str(end[1])
-            cmd_msg = GameCmd(self.info_msg.player_id,
-                                self.opponent,
-                                cmd,
-                                self.board.moves)
+            cmd_msg = GameCmd(self.player_id,
+                              self.opponent,
+                              cmd,
+                              self.board.moves)
             resp = self.send_cmd_client(cmd_msg)
             # Try again, should not happen
             while not resp.success:
@@ -452,7 +450,7 @@ class Game:
             # Check winning
             if self.board.get_winner == -1:
                 goal = WaitCmdGoal(
-                    self.info_msg.player_id,
+                    self.player_id,
                     self.opponent,
                     self.board.moves)
                 self.wait_cmd_client.send_goal(
@@ -477,5 +475,5 @@ class Game:
 
 
 rospy.init_node('game_node', anonymous=True)
-game = Game()
+game = Game(user_id)
 rospy.spin()
