@@ -282,7 +282,8 @@ class Game:
                     # Should not happen
                     self.UI_output_pub.publish(UIout("RECEIVED ILLEGAL CMD"))
                 # TODO: Send MovePiece action goal
-                self.board.move(start, end)
+                else:
+                    self.board.move(start, end)
                 # Check winning
                 if self.board.get_winner() != -1:
                     self.state = States.ENDGAME

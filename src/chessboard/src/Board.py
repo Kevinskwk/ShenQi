@@ -71,6 +71,7 @@ class Board:
         # check if coordinate in range
         if start[0] > W-1 or end[0] > W-1 or \
            (start[0] == end[0] and start[1] == end[1]):
+           print("out of range")
            return False
 
         piece = self.tiles[start[1]][start[0]]
@@ -125,10 +126,11 @@ class Board:
                              (-1, 2), (-2, 1), (1, 2), (2, 1)}:
                 return False
 
-            if (delta[0] == 2 and self.tiles[start[1]][start[0]+1]) or \
-               (delta[0] == -2 and self.tiles[start[1]][start[0]-1]) or \
-               (delta[1] == 2 and self.tiles[start[1]+1][start[0]]) or \
-               (delta[0] == -2 and self.tiles[start[1]-1][start[0]]):
+            if (delta[0] == 2 and self.tiles[start[1]][start[0]+1] != ' ') or \
+               (delta[0] == -2 and self.tiles[start[1]][start[0]-1] != ' ') or \
+               (delta[1] == 2 and self.tiles[start[1]+1][start[0]] != ' ') or \
+               (delta[1] == -2 and self.tiles[start[1]-1][start[0]] != ' '):
+                print('Blocked')
                 return False
 
             return True
@@ -138,10 +140,11 @@ class Board:
             if delta not in {(-2, -2), (-2, 2), (2, -2), (2, 2)}:
                 return False
 
-            if (delta == (2, 2) and self.tiles[start[1]+1][start[0]+1]) or \
-               (delta == (-2, 2) and self.tiles[start[1]+1][start[0]-1]) or \
-               (delta == (2, -2) and self.tiles[start[1]-1][start[0]+1]) or \
-               (delta == (-2, -2) and self.tiles[start[1]-1][start[0]-1]):
+            if (delta == (2, 2) and self.tiles[start[1]+1][start[0]+1] != ' ') or \
+               (delta == (-2, 2) and self.tiles[start[1]+1][start[0]-1] != ' ') or \
+               (delta == (2, -2) and self.tiles[start[1]-1][start[0]+1] != ' ') or \
+               (delta == (-2, -2) and self.tiles[start[1]-1][start[0]-1] != ' '):
+                print('Blocked!')
                 return False
 
             if (piece == 'e' and end[1] > 4) or (piece == 'E' and end[1] < 5):
