@@ -276,8 +276,8 @@ class Game:
                 self.UI_output_pub.publish(UIout("ENDGAME"))
                 self.UI_output_pub.publish(UIout("OPPONENT FORFEIT, YOU WON!"))
             else:
-                start = (int(result.move[0]), int(result.move[1]))
-                end = (int(result.move[2]), int(result.move[3]))
+                start = (8-int(result.move[0]), 9-int(result.move[1]))
+                end = (8-int(result.move[2]), 9-int(result.move[3]))
                 if not self.board.check_legal(start, end):
                     # Should not happen
                     self.UI_output_pub.publish(UIout("RECEIVED ILLEGAL CMD"))
