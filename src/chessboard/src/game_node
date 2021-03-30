@@ -314,6 +314,14 @@ class Game:
                 self.board.reset(1)
             else:
                 self.board.reset(2)
+                goal = WaitCmdGoal(
+                    self.player_id,
+                    self.opponent,
+                    self.board.get_moves())
+                self.wait_cmd_client.send_goal(
+                    goal,
+                    done_cb=self.wait_cmd_done_cb,
+                    feedback_cb=self.wait_cmd_feedback_cb)
             self.board.log_info()
         else:
             self.state = States.HOME
