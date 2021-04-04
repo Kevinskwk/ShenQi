@@ -20,6 +20,7 @@ from chess_msgs.msg import \
     LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult, \
     RematchAction, RematchGoal, RematchFeedback, RematchResult
 from credential import user_id
+from Astar import Node, astar
 
 W = 9
 H = 10
@@ -62,6 +63,7 @@ class Game:
         self.moving = False
         self.selected = None
         self.debounce = None
+        self.eaten = 0
 
         # REMOVE the following line later:
         self.curr_grid = INIT_GRID
@@ -198,6 +200,8 @@ class Game:
             # Accept
             if input == 2:
                 # TODO: accept and pair with the requester
+                # Current behaviour: After one person send an invitation,
+                # the other must either go to quickmatch or send invitation to the same person
                 self.state = States.ARRANGE
                 self.UI_output_pub.publish(UIout("ARRANGE\n4: Confirm"))
             # Decline
@@ -283,9 +287,10 @@ class Game:
                 if not self.board.check_legal(start, end):
                     # Should not happen
                     self.UI_output_pub.publish(UIout("RECEIVED ILLEGAL CMD"))
-                # TODO: Send MovePiece action goal
+                
                 else:
                     self.board.move(start, end)
+                    self.send_move_piece(start, end)
                 # Check winning
                 if self.board.get_winner() != -1:
                     self.state = States.ENDGAME
@@ -313,6 +318,7 @@ class Game:
         if state == 3:
             self.state = States.PLAYING
             self.UI_output_pub.publish(UIout("PLAYING\n3: Forfeit"))
+            self.reset()
             if result.first:
                 self.board.reset(1)
             else:
@@ -358,6 +364,7 @@ class Game:
             "Current move: {}".format(feedback.current_move)))
 
     def move_piece_done_cb(self, state, result):
+        self.last_move_grid = self.curr_grid
         self.moving = False
 
     # QuickMatch action
@@ -401,9 +408,39 @@ class Game:
         self.pub_state()
 
     # Other functions
+    def reset(self):
+        self.last_move_grid = INIT_GRID
+        self.illegal = False
+        self.moving = False
+        self.selected = None
+        self.debounce = None
+        self.eaten = 0
+
     def pub_state(self):
         self.info_msg.mode = self.state.value
         self.player_info_pub.publish(self.info_msg)
+
+    def send_move_piece(self, start, end):
+        paths = []
+        temp_grid = self.last_move_grid.copy()
+        # check if eating (piece on end)
+        if temp_grid[end[1]*W + end[0]]:
+            print("eating")
+            self.eaten += 1
+            temp_grid[end[1]*W + end[0]] = False
+            path = astar(self.last_move_grid, end, None, eat=True)
+            if path is None:
+                rospy.logwarn("No available evacuation path")
+            else:
+                paths.append(path.copy())
+
+        path = astar(temp_grid, start, end)
+        if path is None:
+            rospy.logwarn("No available path")
+        else:
+            paths.append(path.copy())
+        print("paths: {}".format(paths))
+        # TODO: send action goal
 
     def process_change(self, changes):
         # recovery from illegal move
@@ -429,6 +466,8 @@ class Game:
                 UIout("Illegal Move! Please return the piece!"))
         else:
             # get only one change (multiple also not expected)
+            if len(changes) != 1:
+                rospy.logwarn("more than one change at a time!")
             key = next(iter(changes))
 
             # taking up a piece
@@ -449,6 +488,7 @@ class Game:
             self.UI_output_pub.publish(
                 UIout("Illegal Move! Please return the piece!"))
         else:
+            self.last_move_grid = self.curr_grid
             self.board.move(start, end)
             cmd = str(start[0]) + str(start[1]) + \
                 str(end[0]) + str(end[1])
