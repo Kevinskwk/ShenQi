@@ -22,7 +22,7 @@ class Astar():
 
     def get_adjacent(self, pos, occupied=False):
         res = []
-        for adj in [(0, -1), (0, 1), (-1, 0), (1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1)]:
+        for adj in [(0, -1), (0, 1), (-1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1), (1, 0)]:
             # Get new position
             new_pos = (pos[0] + adj[0], pos[1] + adj[1])
             # Make sure within range and walkable terrain
@@ -112,17 +112,52 @@ class Astar():
                 # Add the child to the open list
                 open_list.append(child)
 
-    def find_path(self, grid, start, end, eat):
+    def find_path(self, grid, start, end):
         paths = []
-        self.grid = grid
+        self.grid = grid.copy()
+        eat = self.grid[end[1]*self.W + end[0]]
+        move_back = None
+
         if eat:
-            path = self.astar(end, None, eat)
+            print("eating")
+            path = self.astar(end, None, eat=True)
             if path is None:
-                # TODO: deal with the blocking case
-                pass
+                print("processing exceptional case")
+                blockings = []
+                # get first iteration of blockings
+                check_tile = list(end)
+                while len(blockings) == 0:
+                    blockings = self.get_adjacent(check_tile, occupied=True)
+                    check_tile[0] -= 1
+                # iterating through all blockings
+                # This is actually an Astar inside a BFS
+                i = 0
+                while i < len(blockings):
+                    blocking = blockings[i]
+                    self.grid[blocking[1]*self.W + blocking[0]] = False
+                    for vacancy in self.get_adjacent(blocking):
+                        self.grid[vacancy[1]*self.W + vacancy[0]] = True
+                        new_path = self.astar(end, None, eat=True)
+                        if new_path is not None: # found a path
+                            paths.append([blocking, vacancy])
+                            paths.append(new_path)
+                            move_back = [vacancy, blocking]
+                            break
+                        self.grid[vacancy[1]*self.W + vacancy[0]] = False
+                    if len(paths) != 0:
+                        break
+
+                    # append new blockings
+                    self.grid[blocking[1]*self.W + blocking[0]] = True
+                    for new_blocking in self.get_adjacent(blocking, occupied=True):
+                        if new_blocking not in blockings:
+                            blockings.append(new_blocking)
+                    i += 1
+                # leave the opening there as the next move might need as well
             else:
                 paths.append(path)
 
+        self.grid[end[1]*self.W + end[0]] = False
         path = self.astar(start, end)
         if path is None:
             # special blocked case for cannon
@@ -140,14 +175,16 @@ class Astar():
                     if self.grid[end[1]*self.W + i]: # found the blocking piece
                         blockings.append((i, end[1]))
                         break
-                
             if len(blockings) == 0: # SHOULD NOT HAPPEN
                 print("ILLEGAL MOVE OF CANNON/BLOCKING OF NON-CANNON!")
                 return paths
-            blockings += self.get_adjacent(blockings[0], occupied=True)
-            for blocking in blockings:
-                self.grid[blocking[1]*self.W + blocking[0]] = False
 
+            # iterating through all blockings
+            # This is actually an Astar inside a BFS
+            i = 0
+            while i < len(blockings):
+                blocking = blockings[i]
+                self.grid[blocking[1]*self.W + blocking[0]] = False
                 for vacancy in self.get_adjacent(blocking):
                     self.grid[vacancy[1]*self.W + vacancy[0]] = True
                     new_path = self.astar(start, end)
@@ -155,13 +192,23 @@ class Astar():
                         paths.append([blocking, vacancy])
                         paths.append(new_path)
                         paths.append([vacancy, blocking])
-                        return paths
+                        break
                     self.grid[vacancy[1]*self.W + vacancy[0]] = False
+                if len(paths) != 0:
+                    break
 
+                # append new blockings
                 self.grid[blocking[1]*self.W + blocking[0]] = True
+                for new_blocking in self.get_adjacent(blocking, occupied=True):
+                    if new_blocking not in blockings:
+                        blockings.append(new_blocking)
+                i += 1
+
         else:
             paths.append(path)
 
+        if move_back is not None:
+            paths.append(move_back)
         return paths
 
 def main():
@@ -173,14 +220,14 @@ def main():
             False, False, False, False, False, False, False, False, False,
             False, False, False, False, False, False, False, False, False,
             True , True, True , True, True , True, True , True, True ,
-            False, True , False, False, False, False, False, True , False,
-            False, False, False, False, False, False, False, False, False,
-            True , True , True , True , True , True , True , True , True ]
+            False, True , False, False, False, False, False, True , True,
+            False, False, False, False, False, False, False, True, True,
+            True , True , True , True , True , True , True , True , False ]
 
-    start = (7, 6)
-    end = (2, 8)
+    start = (8, 7)
+    end = (8, 9)
     astar = Astar(grid)
-    eat = True
+    eat = False
 
     paths = astar.find_path(grid, start, end, eat)
     print(paths)
