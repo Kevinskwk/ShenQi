@@ -20,7 +20,7 @@ from chess_msgs.msg import \
     LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult, \
     RematchAction, RematchGoal, RematchFeedback, RematchResult
 from credential import user_id
-from Astar import Node, astar
+from Astar import Node, astar, find_path
 
 W = 9
 H = 10
@@ -421,24 +421,15 @@ class Game:
         self.player_info_pub.publish(self.info_msg)
 
     def send_move_piece(self, start, end):
-        paths = []
+        eat = False
         temp_grid = self.last_move_grid.copy()
         # check if eating (piece on end)
         if temp_grid[end[1]*W + end[0]]:
             print("eating")
+            eat = True
             self.eaten += 1
             temp_grid[end[1]*W + end[0]] = False
-            path = astar(self.last_move_grid, end, None, eat=True)
-            if path is None:
-                rospy.logwarn("No available evacuation path")
-            else:
-                paths.append(path.copy())
-
-        path = astar(temp_grid, start, end)
-        if path is None:
-            rospy.logwarn("No available path")
-        else:
-            paths.append(path.copy())
+        paths = find_path(temp_grid, start, end, eat)
         print("paths: {}".format(paths))
         # TODO: send action goal
 
