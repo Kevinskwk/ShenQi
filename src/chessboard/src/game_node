@@ -20,7 +20,7 @@ from chess_msgs.msg import \
     LobbyRequestAction, LobbyRequestGoal, LobbyRequestFeedback, LobbyRequestResult, \
     RematchAction, RematchGoal, RematchFeedback, RematchResult
 from credential import user_id
-from Astar import Node, astar, find_path
+from Astar import Node, Astar
 
 W = 9
 H = 10
@@ -64,6 +64,7 @@ class Game:
         self.selected = None
         self.debounce = None
         self.eaten = 0
+        self.astar = Astar(INIT_GRID)
 
         # REMOVE the following line later:
         self.curr_grid = INIT_GRID
@@ -425,7 +426,7 @@ class Game:
         if self.last_move_grid[end[1]*W + end[0]]:
             print("eating")
             self.eaten += 1
-        paths = find_path(self.last_move_grid.copy(), start, end)
+        paths = self.astar.find_path(self.last_move_grid.copy(), start, end)
         print("paths: {}".format(paths))
         # TODO: send action goal
 
