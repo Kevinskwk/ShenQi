@@ -1,5 +1,5 @@
 # Request
-string[] moves
+std_msgs/Int8MultiArray[] paths
 ---
 # Result
 bool success

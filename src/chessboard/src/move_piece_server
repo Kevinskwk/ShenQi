@@ -8,6 +8,7 @@ Hosts a ROS action server for move_piece
 import rospy
 import actionlib
 from chess_msgs.msg import MovePieceAction, MovePieceResult, MovePieceFeedback
+from std_msgs.msg import UInt16MultiArray, UInt8MultiArray
 
 class MovePieceServer(object):
     def __init__(self, name):
