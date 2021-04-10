@@ -51,6 +51,7 @@ add_message_files(
   FILES
   GameCmd.msg
   Grid.msg
+  Movement.msg
   PlayerInfo.msg
   UIin.msg
   UIout.msg
