@@ -1,21 +1,101 @@
 #!/usr/bin/env python3
 
 import rospy
+import pygame
 from chess_msgs.msg import UIin, UIout
 
+try:
+    import RPi.GPIO as GPIO
+    RPI = True
+except:
+    RPI = False
+
+# pygame set up
+pygame.init()
+infoObject = pygame.display.Info()
+display_size = (infoObject.current_w, infoObject.current_h)
+
+gameDisplay = pygame.display.set_mode(display_size, pygame.NOFRAME)
+pygame.display.set_caption("ShenQi")
+
+clock = pygame.time.Clock()
+crashed = False
+
+image_list = ["home.png", "mode_select.png", "quickmatch.png", 
+    "lobby_input.png", "lobby_wait.png", "prompt_invite.png",
+    "arrange.png", "wait_arrange.png", "playing.png",
+    "prompt_forfeit.png", "endgame.png", "wait_rematch.png"]
+# images = [pygame.image.load('assets/' + image) for image in image_list]
+
+pygame.font.init()
+font = pygame.font.Font('freesansbold.ttf', 32)
+
+gameDisplay.fill(0)
+gameDisplay.blit(get_text("HOME"), (500,500))
+
+# generate text
+def get_text(string, colour=(255, 255, 255)):
+    return font.render(string, 1, colour)
+
+# callback functions
+def button_cb(channel):
+    button_id = buttons.index(channel) + 1
+    msg = UIin(button_id)
+    UI_input_pub.publish(msg)
+
 def UI_output_cb(msg):
+    #self.screen.blit(background, (0,0))
+    gameDisplay.fill(0)
+    gameDisplay.blit(get_text(msg.data), (500,500))
     print(msg.data + '\n')
 
-UI_input_pub = rospy.Publisher('UI_input', UIin, queue_size=10)
+# ros stuff
+rospy.init_node('UI_node', anonymous = True)
 
+UI_input_pub = rospy.Publisher('UI_input', UIin, queue_size=10)
 UI_output_sub = rospy.Subscriber('UI_output', UIout, UI_output_cb, queue_size=10)
 
-rospy.init_node('UI_node', anonymous = True)
-rate = rospy.Rate(2)
+# set up buttons and callbacks
+buttons = (4, 14, 15, 18)
+if RPI:
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BCM)
+    for i in buttons:
+        GPIO.setup(i, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(
+            i, GPIO.RISING, callback=button_cb, bouncetime=200)
 
-while (True):
-    button = int(input("Press button: "))
-    msg = UIin()
-    msg.button = button
-    UI_input_pub.publish(msg)
-    rospy.sleep(0.2)
+# main loop
+while not crashed:
+    # If pygame crashes, quit
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            crashed = True
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_1:
+                msg = UIin(1)
+                UI_input_pub.publish(msg)
+            
+            elif event.key == pygame.K_2:
+                msg = UIin(2)
+                UI_input_pub.publish(msg)
+
+            elif event.key == pygame.K_3:
+                msg = UIin(3)
+                UI_input_pub.publish(msg)
+
+            elif event.key == pygame.K_4:
+                msg = UIin(4)
+                UI_input_pub.publish(msg)
+
+            elif event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                if gameDisplay.get_flags() & pygame.NOFRAME:
+                    pygame.display.set_mode(display_size)
+                else:
+                    pygame.display.set_mode(display_size, pygame.NOFRAME)
+
+    pygame.display.update()
+    clock.tick(60)
+
+pygame.quit()
+quit()

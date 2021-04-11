@@ -1,2 +1,15 @@
-# placeholder only
+uint8 HOME = 0
+uint8 MODE_SELECT = 1
+uint8 QUICKMATCH = 2
+uint8 LOBBY_INPUT = 3
+uint8 LOBBY_WAIT = 4
+uint8 PROMPT_INVITE = 5
+uint8 ARRANGE = 6
+uint8 WAIT_ARRANGE = 7
+uint8 PLAYING = 8
+uint8 WAIT_MOVE = 9
+uint8 PROMPT_FORFEIT = 10
+uint8 ENDGAME = 11
+uint8 WAIT_REMATCH = 12
+uint8 screen
 string data
