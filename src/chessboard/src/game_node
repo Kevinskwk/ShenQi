@@ -442,7 +442,8 @@ class Game:
                     data += path[i-1]
             data += path[-1]
             if path[-1][0] == -1:
-                data += [-1, self.eaten, -2, self.eaten]
+                # position value > 10 are the side spaces for eaten pieces
+                data += [-1, self.eaten+10, -2, self.eaten+10]
             path_msg.data = data
             goal.paths.append(path_msg)
 
