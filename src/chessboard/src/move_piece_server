@@ -17,7 +17,7 @@ class MovePieceServer(object):
         self.table_x = {}
         self.table_y = {}
         self.sensor_sub = rospy.Subscriber(
-            'sensor_data', ByteMultiArray, self.sensor_cb, queue_size=1)
+            'sensor', ByteMultiArray, self.sensor_cb, queue_size=1)
         self.move_pub = rospy.Publisher('movement', UInt16MultiArray, queue_size=1)
         self.done = False
         self._as = actionlib.SimpleActionServer(

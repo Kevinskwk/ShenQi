@@ -84,7 +84,7 @@ class Game:
 
         # ROS subscribers
         self.sensor_sub = rospy.Subscriber(
-            'sensor_data', ByteMultiArray, self.sensor_cb, queue_size=1)
+            'sensor', ByteMultiArray, self.sensor_cb, queue_size=1)
         self.UI_input_sub = rospy.Subscriber(
             'UI_input', UIin, self.UI_input_cb, queue_size=1)
         # for testing

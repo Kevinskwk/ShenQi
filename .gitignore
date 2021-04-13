@@ -1,3 +1,6 @@
+# vscode
+.vscode/
+
 # ROS related
 build/
 devel/
