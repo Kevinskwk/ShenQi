@@ -9,8 +9,8 @@ import actionlib
 from Board import Board
 # TODO: Might need to import Uint8MultiArray and replace Grid
 # TODO: Check what message types are redundant and can be replace with std_msgs
-from std_msgs.msg import String
-from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout, GameCmd
+from std_msgs.msg import String, ByteMultiArray, Int8MultiArray
+from chess_msgs.msg import PlayerInfo, UIin, UIout, GameCmd
 from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
@@ -84,7 +84,7 @@ class Game:
 
         # ROS subscribers
         self.sensor_sub = rospy.Subscriber(
-            'sensor_data', Grid, self.sensor_cb, queue_size=1)
+            'sensor', ByteMultiArray, self.sensor_cb, queue_size=1)
         self.UI_input_sub = rospy.Subscriber(
             'UI_input', UIin, self.UI_input_cb, queue_size=1)
         # for testing
@@ -118,17 +118,17 @@ class Game:
     def sensor_cb(self, msg):
         changes = dict()
         for i in range(90):
-            if self.curr_grid[i] != msg[i]:
-                changes[i] = msg[i]
+            if self.curr_grid[i] != msg.data[i]:
+                changes[i] = msg.data[i]
         if len(changes == 0):
             if not self.debounce is None:
                 self.debounce = None
         else:
             if self.debounce is None:
-                self.debounce = msg
+                self.debounce = msg.data
             elif self.debounce == msg:  # not a bounce
                 self.debounce = None
-                self.curr_grid = msg
+                self.curr_grid = msg.data
                 self.process_change(changes)
 
     # for testing
@@ -464,7 +464,29 @@ class Game:
             self.eaten += 1
         paths = self.astar.find_path(self.last_move_grid.copy(), start, end)
         print("paths: {}".format(paths))
-        # TODO: send action goal
+        goal = MovePieceGoal()
+
+        # post processing of the paths
+        for path in paths:
+            path_msg = Int8MultiArray()
+            data = []
+            last_delta = [0, 0]
+            for i in range(1, len(path)):
+                delta = [path[i][0]-path[i-1][0], path[i][1]-path[i-1][1]]
+                if delta != last_delta:
+                    last_delta = delta
+                    data += path[i-1]
+            data += path[-1]
+            if path[-1][0] == -1:
+                # position value > 10 are the side spaces for eaten pieces
+                data += [-1, self.eaten+10, -2, self.eaten+10]
+            path_msg.data = data
+            goal.paths.append(path_msg)
+
+        self.move_piece_client.send_goal(
+            goal,
+            done_cb=self.move_piece_done_cb,
+            feedback_cb=self.move_piece_feedback_cb)
 
     def process_change(self, changes):
         # recovery from illegal move

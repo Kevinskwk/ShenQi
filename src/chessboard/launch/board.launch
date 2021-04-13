@@ -2,7 +2,6 @@
     <group>
         <node name="game_node" pkg="chessboard" type="game_node" output="screen" />
         <node name="move_piece_server" pkg="chessboard" type="move_piece_server" output="screen" />
-        <node name="sensor_node" pkg="chessboard" type="sensor_node" output="screen" />
         <node name="UI_node" pkg="chessboard" type="UI_node" output="screen" />
         <node name="server_node" pkg="chessboard" type="server_node" output="screen" />
     </group>
