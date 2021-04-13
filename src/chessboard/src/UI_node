@@ -3,6 +3,12 @@
 import rospy
 import pygame
 from chess_msgs.msg import UIin, UIout
+import os
+
+try:
+    os.chdir(os.path.dirname(__file__))
+except:
+    pass
 
 try:
     import RPi.GPIO as GPIO
@@ -21,20 +27,21 @@ pygame.display.set_caption("ShenQi")
 clock = pygame.time.Clock()
 crashed = False
 
-image_list = ["home.png", "mode_select.png", "quickmatch.png", 
-    "lobby_input.png", "lobby_wait.png", "prompt_invite.png",
-    "arrange.png", "wait_arrange.png", "playing.png",
-    "prompt_forfeit.png", "endgame.png", "wait_rematch.png"]
-# images = [pygame.image.load('assets/' + image) for image in image_list]
+image_list = ["home.png", "mode_select.png", "lobby_input.png", "loading.png",
+    "match_found.png", "invite.png", "arrange.png", "your_turn.png",
+    "opponent_turn.png", "forfeit.png", "illegal_move.png", "win.png", "lose.png"]
+images = [pygame.transform.scale(pygame.image.load('assets/' + image), display_size) for image in image_list]
+curr_screen = 0
 
 pygame.font.init()
-font = pygame.font.Font('freesansbold.ttf', 32)
+font = pygame.font.Font('freesansbold.ttf', 96)
 
-gameDisplay.fill(0)
-gameDisplay.blit(get_text("HOME"), (500,500))
+gameDisplay.fill((255, 255, 255))
+gameDisplay.blit(images[0], (0, 0))
+pygame.display.update()
 
 # generate text
-def get_text(string, colour=(255, 255, 255)):
+def get_text(string, colour=(0, 0, 0)):
     return font.render(string, 1, colour)
 
 # callback functions
@@ -44,9 +51,11 @@ def button_cb(channel):
     UI_input_pub.publish(msg)
 
 def UI_output_cb(msg):
-    #self.screen.blit(background, (0,0))
-    gameDisplay.fill(0)
-    gameDisplay.blit(get_text(msg.data), (500,500))
+    gameDisplay.fill((255, 255, 255))
+    gameDisplay.blit(images[msg.screen], (0,0))
+    if msg.screen in [2, 3, 4]:
+        text = get_text(msg.data)
+        gameDisplay.blit(text, ((display_size[0]-text.get_width())/2, display_size[1]*2/3))
     print(msg.data + '\n')
 
 # ros stuff
