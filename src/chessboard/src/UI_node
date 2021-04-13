@@ -34,7 +34,7 @@ images = [pygame.transform.scale(pygame.image.load('assets/' + image), display_s
 curr_screen = 0
 
 pygame.font.init()
-font = pygame.font.Font('freesansbold.ttf', 96)
+font = pygame.font.Font('freesansbold.ttf', 64)
 
 gameDisplay.fill((255, 255, 255))
 gameDisplay.blit(images[0], (0, 0))

@@ -226,7 +226,7 @@ class Game:
 
         elif self.state == States.ARRANGE:
             # Confirm
-            if input == 4:
+            if input == 3:
                 if self.check_arrangement():
                     goal = WaitReadyGoal(self.player_id, self.opponent)
                     self.wait_ready_client.send_goal(
@@ -416,7 +416,7 @@ class Game:
                 UIout.ARRANGE, "Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout(
-                UIout.ARRANGE, "ARRANGE\n4: Confirm"))
+                UIout.ARRANGE, "ARRANGE\n3: Confirm"))
         else:
             self.UI_output_pub.publish(UIout(
                 UIout.MODE_SELECT, "Failed to find an opponent"))
@@ -438,7 +438,7 @@ class Game:
                 UIout.ARRANGE, "Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
             self.UI_output_pub.publish(UIout(
-                UIout.ARRANGE, "ARRANGE\n4: Confirm"))
+                UIout.ARRANGE, "ARRANGE\n3: Confirm"))
         else:
             self.UI_output_pub.publish(UIout(
                 UIout.MODE_SELECT, "Failed to find user [{}]".format(self.lobby_input)))
@@ -485,7 +485,7 @@ class Game:
             data += path[-1]
             if path[-1][0] == -1:
                 # position value > 10 are the side spaces for eaten pieces
-                data += [-1, self.eaten+10, -2, self.eaten+10]
+                data += [-1, self.eaten+9, -2, self.eaten+9]
             path_msg.data = data
             goal.paths.append(path_msg)
 
