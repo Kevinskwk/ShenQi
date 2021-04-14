@@ -1,7 +1,7 @@
 #include <Stepper.h>
 #include <ros.h>
-#include <std_msgs/UInt16MultiArray.h>
-#include <std_msgs/ByteMultiArray.h>
+#include <std_msgs/Int8MultiArray.h>
+#include <std_msgs/Empty.h>
 
 // change this to fit the number of steps per revolution for your motor
 #define STEPS_PER_RESOLUTION 200
@@ -13,7 +13,7 @@
 #define Lswitch_x 8
 #define Lswitch_y 9
 // Magnet pin
-#define magnet 10
+#define magnet 7
 
 // Reed switch
 const short reedRow[10] = {35, 34, 33, 32, 31, 30, 29, 28, 27, 26};
@@ -26,14 +26,18 @@ Stepper myStepperR(STEPS_PER_RESOLUTION, 13, 12);
 
 // HBot variables
 // TODO: add the coordinate table
-const long table_x[11] = {};
-const long table_y[26] = {};
+const unsigned int table_x[11] = {0, 3625, 7250, 14500, 21750, 29000, 36250,
+                                  43500, 50750, 58000, 65250};
+const unsigned int table_y[26] = {0, 7250, 14500, 21750, 29000, 36250, 43500,
+                                  50750, 58000, 65250, 0, 4350, 8700, 13050,
+                                  17400, 21750, 26100, 30450, 34800, 39150,
+                                  43500, 47850, 52200, 56550, 60900, 65250};
 long x, y;
 long coordinates[2] = {0, 0}; // Initialize with home position
 bool debounce = false;
 
 // ROS stuff
-void movementCb( const std_msgs::UInt16MultiArray& msg) {
+void movementCb( const std_msgs::Int8MultiArray& msg) {
   switch (msg.data[2]) {
     case 0:
       digitalWrite(magnet, LOW);
@@ -56,9 +60,11 @@ void movementCb( const std_msgs::UInt16MultiArray& msg) {
 }
 
 ros::NodeHandle nh;
-std_msgs::ByteMultiArray reedsMsg;
-ros::Subscriber<std_msgs::UInt16MultiArray> movementSub("movement", &movementCb);
+std_msgs::Int8MultiArray reedsMsg;
+std_msgs::Empty feedbackMsg;
+ros::Subscriber<std_msgs::Int8MultiArray> movementSub("movement", &movementCb);
 ros::Publisher reedPub("sensor", &reedsMsg);
+ros::Publisher feedbackPub("feedback", &feedbackMsg);
 
 
 void setup() {
@@ -78,9 +84,12 @@ void setup() {
   }
 
   // ROS
+  reedsMsg.data = (std_msgs::Int8MultiArray::_data_type *)malloc(sizeof(short)*90);
+  reedsMsg.data_length = 90;
   nh.initNode();
   nh.subscribe(movementSub);
   nh.advertise(reedPub);
+  nh.advertise(feedbackPub);
 
   delay(250);
   home();
@@ -169,7 +178,8 @@ void Hbot() {
   }
   x = 0L;
   y = 0L;
-  delay(1200);
+  delay(200);
+  feedbackPub.publish(&feedbackMsg);
 }
 
 void home() {

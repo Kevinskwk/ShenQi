@@ -7,9 +7,8 @@ import enum
 import rospy
 import actionlib
 from Board import Board
-# TODO: Might need to import Uint8MultiArray and replace Grid
 # TODO: Check what message types are redundant and can be replace with std_msgs
-from std_msgs.msg import String, ByteMultiArray, Int8MultiArray
+from std_msgs.msg import String, Int8MultiArray
 from chess_msgs.msg import PlayerInfo, UIin, UIout, GameCmd
 from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
@@ -84,7 +83,7 @@ class Game:
 
         # ROS subscribers
         self.sensor_sub = rospy.Subscriber(
-            'sensor', ByteMultiArray, self.sensor_cb, queue_size=1)
+            'sensor', Int8MultiArray, self.sensor_cb, queue_size=1)
         self.UI_input_sub = rospy.Subscriber(
             'UI_input', UIin, self.UI_input_cb, queue_size=1)
         # for testing
@@ -118,9 +117,9 @@ class Game:
     def sensor_cb(self, msg):
         changes = dict()
         for i in range(90):
-            if self.curr_grid[i] != msg.data[i]:
-                changes[i] = msg.data[i]
-        if len(changes == 0):
+            if self.curr_grid[i] != bool(msg.data[i]):
+                changes[i] = bool(msg.data[i])
+        if len(changes) == 0:
             if not self.debounce is None:
                 self.debounce = None
         else:

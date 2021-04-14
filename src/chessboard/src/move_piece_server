@@ -8,13 +8,15 @@ Hosts a ROS action server for move_piece
 import rospy
 import actionlib
 from chess_msgs.msg import MovePieceAction, MovePieceResult, MovePieceFeedback
-from std_msgs.msg import Int8MultiArray, ByteMultiArray
+from std_msgs.msg import Int8MultiArray, Empty
 
 class MovePieceServer(object):
     def __init__(self, name):
         self._action_name = name
         self.sensor_sub = rospy.Subscriber(
-            'sensor', ByteMultiArray, self.sensor_cb, queue_size=1)
+            'sensor', Int8MultiArray, self.sensor_cb, queue_size=1)
+        self.feedback_sub = rospy.Subscriber(
+            'feedback', Empty, self.feedback_cb, queue_size=1)
         self.move_pub = rospy.Publisher(
             'movement', Int8MultiArray, queue_size=1)
         self.done = False
@@ -27,6 +29,9 @@ class MovePieceServer(object):
 
     def sensor_cb(self, msg):
         # TODO: verify with the sensor reading
+        pass
+
+    def feedback_cb(self, msg):
         self.done = True
       
     def execute_cb(self, goal):
@@ -42,6 +47,7 @@ class MovePieceServer(object):
                 self._as.publish_feedback(MovePieceFeedback(
                     '{}, {}'.format(path.data[2*i], path.data[2*i+1])))
                 self.done = False
+                rospy.sleep(1)
                 while not self.done:
                     rate.sleep()
         # Home after finish
