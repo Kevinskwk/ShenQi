@@ -7,10 +7,9 @@ import enum
 import rospy
 import actionlib
 from Board import Board
-# TODO: Might need to import Uint8MultiArray and replace Grid
 # TODO: Check what message types are redundant and can be replace with std_msgs
-from std_msgs.msg import String
-from chess_msgs.msg import Grid, PlayerInfo, UIin, UIout, GameCmd
+from std_msgs.msg import String, Int8MultiArray
+from chess_msgs.msg import PlayerInfo, UIin, UIout, GameCmd
 from chess_msgs.srv import SendCmd, ServerInfo
 from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
@@ -84,7 +83,7 @@ class Game:
 
         # ROS subscribers
         self.sensor_sub = rospy.Subscriber(
-            'sensor_data', Grid, self.sensor_cb, queue_size=1)
+            'sensor', Int8MultiArray, self.sensor_cb, queue_size=1)
         self.UI_input_sub = rospy.Subscriber(
             'UI_input', UIin, self.UI_input_cb, queue_size=1)
         # for testing
@@ -111,23 +110,24 @@ class Game:
         self.lobby_request_client = actionlib.SimpleActionClient(
             'lobby_request', LobbyRequestAction)
 
-        self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+        self.UI_output_pub.publish(UIout(
+            UIout.HOME, "HOME\nPress any button (1-4) to continue"))
 
     # Callback functions
     def sensor_cb(self, msg):
         changes = dict()
         for i in range(90):
-            if self.curr_grid[i] != msg[i]:
-                changes[i] = msg[i]
-        if len(changes == 0):
+            if self.curr_grid[i] != bool(msg.data[i]):
+                changes[i] = bool(msg.data[i])
+        if len(changes) == 0:
             if not self.debounce is None:
                 self.debounce = None
         else:
             if self.debounce is None:
-                self.debounce = msg
+                self.debounce = msg.data
             elif self.debounce == msg:  # not a bounce
                 self.debounce = None
-                self.curr_grid = msg
+                self.curr_grid = msg.data
                 self.process_change(changes)
 
     # for testing
@@ -142,17 +142,20 @@ class Game:
         # FSM
         if self.state == States.HOME:
             self.state = States.MODE_SELECT
-            self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         elif self.state == States.MODE_SELECT:
             # Back
             if input == 1:
                 self.state = States.HOME
-                self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.HOME, "HOME\nPress any button (1-4) to continue"))
             # Quickmatch
             elif input == 2:
                 self.state = States.QUICKMATCH
-                self.UI_output_pub.publish(UIout("QUICKMATCH\n1:Back"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOADING, "Matching Opponent..."))
                 goal = QuickMatchGoal(self.player_id)
                 self.quick_match_client.send_goal(
                     goal,
@@ -161,7 +164,10 @@ class Game:
             # Lobby
             elif input == 3:
                 self.state = States.LOBBY_INPUT
-                self.UI_output_pub.publish(UIout("LOBBY INPUT\npress 1-4 for a-d"))
+                # self.UI_output_pub.publish(UIout(
+                #     UIout.LOBBY_INPUT, "LOBBY INPUT\npress 1-4 for a-d"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOBBY_INPUT, ""))
                 self.lobby_input = ''
 
         elif self.state == States.QUICKMATCH:
@@ -169,7 +175,8 @@ class Game:
             if input == 1:
                 self.quick_match_client.cancel_all_goals()
                 self.state = States.MODE_SELECT
-                self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         elif self.state == States.LOBBY_INPUT:
             if len(self.lobby_input) < 4:
@@ -181,6 +188,8 @@ class Game:
                     self.lobby_input += 'c'
                 elif input == 4:
                     self.lobby_input += 'd'
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOBBY_INPUT, self.lobby_input))
             if len(self.lobby_input) == 4:
                 goal = LobbyRequestGoal(self.player_id, self.lobby_input)
                 self.lobby_request_client.send_goal(
@@ -188,14 +197,16 @@ class Game:
                     done_cb=self.lobby_request_done_cb,
                     feedback_cb=self.lobby_request_feedback_cb)
                 self.state = States.LOBBY_WAIT
-                self.UI_output_pub.publish(UIout("LOBBY WAIT\n1: Back"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOADING, "Waiting for opponent {} to respond...".format(self.lobby_input)))
 
         elif self.state == States.LOBBY_WAIT:
             # Back
             if input == 1:
                 self.lobby_request_client.cancel_all_goals()
                 self.state = States.MODE_SELECT
-                self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         elif self.state == States.PROMPT_INVITE:
             # Accept
@@ -204,15 +215,17 @@ class Game:
                 # Current behaviour: After one person send an invitation,
                 # the other must either go to quickmatch or send invitation to the same person
                 self.state = States.ARRANGE
-                self.UI_output_pub.publish(UIout("ARRANGE\n4: Confirm"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.ARRANGE, "ARRANGE\n3: Confirm"))
             # Decline
             elif input == 3:
                 self.state = States.MODE_SELECT
-                self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         elif self.state == States.ARRANGE:
             # Confirm
-            if input == 4:
+            if input == 3:
                 if self.check_arrangement():
                     goal = WaitReadyGoal(self.player_id, self.opponent)
                     self.wait_ready_client.send_goal(
@@ -220,14 +233,15 @@ class Game:
                         done_cb=self.wait_ready_done_cb,
                         feedback_cb=self.wait_ready_feedback_cb)
                 else:
-                    self.UI_output_pub.publish(
-                        UIout("Arrangement error, try again"))
+                    self.UI_output_pub.publish(UIout(
+                        UIout.ARRANGE, "Arrangement error, try again"))
 
         elif self.state == States.PLAYING:
             # Forfeit
             if input == 3:
                 self.state = States.PROMPT_FORFEIT
-                self.UI_output_pub.publish(UIout("PROMPT FORFEIT\nConfirm forfeit? 2: Yes, 3: No"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.FORFEIT, "PROMPT FORFEIT\nConfirm forfeit? 2: Yes, 3: No"))
 
         elif self.state == States.PROMPT_FORFEIT:
             # Yes
@@ -244,20 +258,24 @@ class Game:
                     resp = self.send_cmd_client(cmd_msg)
 
                 self.state = States.ENDGAME
-                self.UI_output_pub.publish(UIout("You Forfeit!"))
-                self.UI_output_pub.publish(UIout("ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOSE, "You Forfeit!"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOSE, "ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
 
             # No
             elif input == 3:
                 self.state = States.PLAYING
-                self.UI_output_pub.publish(UIout("PLAYING\n3: Forfeit"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
 
         elif self.state == States.ENDGAME:
             # Quit
             if input == 1 or input == 3:
                 self.opponent = ''
                 self.state = States.HOME
-                self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.HOME, "HOME\nPress any button (1-4) to continue"))
             # Rematch
             if input == 2:
                 goal = RematchGoal(self.player_id, self.opponent)
@@ -265,14 +283,15 @@ class Game:
                     goal,
                     done_cb=self.rematch_done_cb,
                     feedback_cb=self.rematch_feedback_cb)
-                self.UI_output_pub.publish(UIout("Requested rematch, waiting for response"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.LOADING, "Waiting for opponent..."))
 
         self.pub_state()
 
     # WaitCmd action
     def wait_cmd_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Waiting for opponent to move...{}".format(feedback.wait_time)))
+            UIout.OPPONENT_TURN, "Waiting for opponent to move...{}".format(feedback.wait_time)))
 
     def wait_cmd_done_cb(self, state, result):
         if state == 3 and result.move != 'timeout':
@@ -280,15 +299,18 @@ class Game:
             if result.move == 'FFFF':
                 self.board.forfeit(2)
                 self.state = States.ENDGAME
-                self.UI_output_pub.publish(UIout("Opponent Forfeit, You Win!"))
-                self.UI_output_pub.publish(UIout("ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.WIN, "Opponent Forfeit, You Win!"))
+                self.UI_output_pub.publish(UIout(
+                    UIout.WIN, "ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
             else:
                 start = (8-int(result.move[0]), 9-int(result.move[1]))
                 end = (8-int(result.move[2]), 9-int(result.move[3]))
                 if not self.board.check_legal(start, end):
                     # Should not happen
-                    self.UI_output_pub.publish(UIout("RECEIVED ILLEGAL CMD"))
-                
+                    self.UI_output_pub.publish(UIout(
+                        UIout.ILLEGAL_MOVE, "RECEIVED ILLEGAL CMD"))
+                    rospy.logwarn("RECEIVED ILLEGAL CMD")
                 else:
                     self.board.move(start, end)
                     self.send_move_piece(start, end)
@@ -296,29 +318,36 @@ class Game:
                 if self.board.get_winner() != -1:
                     self.state = States.ENDGAME
                     if self.board.get_winner() == 2:
-                        self.UI_output_pub.publish(UIout("You Lose!"))
+                        self.UI_output_pub.publish(UIout(
+                            UIout.LOSE, "You Lose!"))
                     elif self.board.get_winner() == 1:
-                        self.UI_output_pub.publish(UIout("You Win!"))
-                    elif self.board.get_winner() == 0:
-                        self.UI_output_pub.publish(UIout("Draw!"))
-                    self.UI_output_pub.publish(UIout("ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
+                        self.UI_output_pub.publish(UIout(
+                            UIout.WIN, "You Win!"))
+                    # elif self.board.get_winner() == 0:
+                    #     self.UI_output_pub.publish(UIout(
+                    #         UIout.ENDGAME, "Draw!"))
+                    # self.UI_output_pub.publish(UIout(
+                    #     UIout.ENDGAME, "ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
         else:
             self.state = States.HOME
-            self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "Timeout waiting for opponent"))
             # TODO: handle the timeout on the other side
-            self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "HOME\nPress any button (1-4) to continue"))
 
         self.pub_state()
 
     # WaitReady action
     def wait_ready_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Waiting for opponent to arrange...{}".format(feedback.wait_time)))
+            UIout.LOADING, "Waiting for opponent...{}".format(feedback.wait_time)))
 
     def wait_ready_done_cb(self, state, result):
         if state == 3:
             self.state = States.PLAYING
-            self.UI_output_pub.publish(UIout("PLAYING\n3: Forfeit"))
+            self.UI_output_pub.publish(UIout(
+                UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
             self.reset()
             if result.first:
                 self.board.reset(1)
@@ -336,33 +365,39 @@ class Game:
             self.board.log_info()
         else:
             self.state = States.HOME
-            self.UI_output_pub.publish(UIout("Timeout waiting for opponent"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "Timeout waiting for opponent"))
             # TODO: handle the timeout on the other side
-            self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "HOME\nPress any button (1-4) to continue"))
 
         self.pub_state()
 
     # Rematch action
     def rematch_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Waiting for opponent to accept...{}".format(feedback.wait_time)))
+            UIout.LOADING, "Waiting for opponent...{}".format(feedback.wait_time)))
 
     def rematch_done_cb(self, state, result):
         if state == 3:
             self.state = States.ARRANGE
-            self.UI_output_pub.publish(UIout("ARRANGE\n4: Confirm"))
+            self.UI_output_pub.publish(UIout(
+                UIout.ARRANGE, "ARRANGE\n3: Confirm"))
         else:
-            self.UI_output_pub.publish(UIout("Opponent refused rematch"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "Opponent refused rematch"))
             self.state = States.HOME
             # TODO: handle the timeout on the other side
-            self.UI_output_pub.publish(UIout("HOME\nPress any button (1-4) to continue"))
+            self.UI_output_pub.publish(UIout(
+                UIout.HOME, "HOME\nPress any button (1-4) to continue"))
 
         self.pub_state()
 
     # MovePiece action
     def move_piece_feedback_cb(self, feedback):
-        self.UI_output_pub.publish(UIout(
-            "Current move: {}".format(feedback.current_move)))
+        # self.UI_output_pub.publish(UIout(
+        #     UIout.PLAYING, "Current move: {}".format(feedback.current_move)))
+        print("Current move: {}".format(feedback.current_move))
 
     def move_piece_done_cb(self, state, result):
         self.last_move_grid = self.curr_grid
@@ -371,40 +406,46 @@ class Game:
     # QuickMatch action
     def quick_match_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Matching opponent...{}".format(feedback.wait_time)))
+            UIout.LOADING, "Matching opponent...{}".format(feedback.wait_time)))
 
     def quick_match_done_cb(self, state, result):
         if state == 3 and result.opponent != 'timeout':
             self.opponent = result.opponent
-            self.UI_output_pub.publish(
-                UIout("Matched with: {}".format(self.opponent)))
+            self.UI_output_pub.publish(UIout(
+                UIout.ARRANGE, "Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
-            self.UI_output_pub.publish(UIout("ARRANGE\n4: Confirm"))
+            self.UI_output_pub.publish(UIout(
+                UIout.ARRANGE, "ARRANGE\n3: Confirm"))
         else:
-            self.UI_output_pub.publish(UIout("Failed to find an opponent"))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, "Failed to find an opponent"))
             self.state = States.MODE_SELECT
-            self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         self.pub_state()
 
     # LobbyRequest action
     def lobby_request_feedback_cb(self, feedback):
         self.UI_output_pub.publish(UIout(
-            "Matching opponent...{}".format(feedback.wait_time)))
+            UIout.LOADING, "Waiting for opponent to respond...{}".format(feedback.wait_time)))
 
     def lobby_request_done_cb(self, state, result):
         if state == 3 and result.success:
             self.opponent = self.lobby_input
-            self.UI_output_pub.publish(
-                UIout("Matched with: {}".format(self.opponent)))
+            self.UI_output_pub.publish(UIout(
+                UIout.ARRANGE, "Matched with: {}".format(self.opponent)))
             self.state = States.ARRANGE
-            self.UI_output_pub.publish(UIout("ARRANGE\n4: Confirm"))
+            self.UI_output_pub.publish(UIout(
+                UIout.ARRANGE, "ARRANGE\n3: Confirm"))
         else:
-            self.UI_output_pub.publish(
-                UIout("Failed to find user [{}]".format(self.lobby_input)))
-            self.UI_output_pub.publish(UIout(str(result.msg)))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, "Failed to find user [{}]".format(self.lobby_input)))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, str(result.msg)))
             self.state = States.MODE_SELECT
-            self.UI_output_pub.publish(UIout("MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
+            self.UI_output_pub.publish(UIout(
+                UIout.MODE_SELECT, "MODE SELECT\n1: Back, 2: Quickmatch, 3: Lobby"))
 
         self.pub_state()
 
@@ -428,13 +469,36 @@ class Game:
             self.eaten += 1
         paths = self.astar.find_path(self.last_move_grid.copy(), start, end)
         print("paths: {}".format(paths))
-        # TODO: send action goal
+        goal = MovePieceGoal()
+
+        # post processing of the paths
+        for path in paths:
+            path_msg = Int8MultiArray()
+            data = []
+            last_delta = [0, 0]
+            for i in range(1, len(path)):
+                delta = [path[i][0]-path[i-1][0], path[i][1]-path[i-1][1]]
+                if delta != last_delta:
+                    last_delta = delta
+                    data += path[i-1]
+            data += path[-1]
+            if path[-1][0] == -1:
+                # position value > 10 are the side spaces for eaten pieces
+                data += [-1, self.eaten+9, -2, self.eaten+9]
+            path_msg.data = data
+            goal.paths.append(path_msg)
+
+        self.move_piece_client.send_goal(
+            goal,
+            done_cb=self.move_piece_done_cb,
+            feedback_cb=self.move_piece_feedback_cb)
 
     def process_change(self, changes):
         # recovery from illegal move
         if self.illegal:
             if self.curr_grid == self.last_move_grid:
                 self.illegal = False
+                # TODO: change back to original screen
             return
 
         # ignore during auto moving and not during PLAYING or PROMPT_FORFEIT
@@ -446,12 +510,13 @@ class Game:
         # auto cancel forfeit if player tries to move
         if self.state == States.PROMPT_FORFEIT:
             self.state = States.PLAYING
-            self.UI_output_pub.publish(UIout("PLAYING\n3: Forfeit"))
+            self.UI_output_pub.publish(UIout(
+                UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
 
         if self.board.get_turn() != 1:
             self.illegal = True
-            self.UI_output_pub.publish(
-                UIout("Illegal Move! Please return the piece!"))
+            self.UI_output_pub.publish(UIout(
+                UIout.ILLEGAL_MOVE, "Illegal Move! Please return the piece!"))
         else:
             # get only one change (multiple also not expected)
             if len(changes) != 1:
@@ -473,8 +538,8 @@ class Game:
         if not self.board.check_legal(start, end):
             if not test:
                 self.illegal = True
-            self.UI_output_pub.publish(
-                UIout("Illegal Move! Please return the piece!"))
+            self.UI_output_pub.publish(UIout(
+                UIout.ILLEGAL_MOVE, "Illegal Move! Please return the piece!"))
         else:
             self.last_move_grid = self.curr_grid
             self.board.move(start, end)
@@ -502,12 +567,16 @@ class Game:
             else:
                 self.state = States.ENDGAME
                 if self.board.get_winner() == 2:
-                    self.UI_output_pub.publish(UIout("You Lose!"))
+                    self.UI_output_pub.publish(UIout(
+                        UIout.LOSE, "You Lose!"))
                 elif self.board.get_winner() == 1:
-                    self.UI_output_pub.publish(UIout("You Win!"))
-                elif self.board.get_winner() == 0:
-                    self.UI_output_pub.publish(UIout("Draw!"))
-                self.UI_output_pub.publish(UIout("ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
+                    self.UI_output_pub.publish(UIout(
+                        UIout.WIN, "You Win!"))
+                # elif self.board.get_winner() == 0:
+                #     self.UI_output_pub.publish(UIout(
+                #         UIout.ENDGAME, "Draw!"))
+                # self.UI_output_pub.publish(UIout(
+                #     UIout.ENDGAME, "ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
         self.pub_state()
 
     def check_arrangement(self):

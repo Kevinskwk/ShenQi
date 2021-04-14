@@ -219,17 +219,17 @@ def main():
             True , False, True , False, True , False, True , False, True ,
             False, False, False, False, False, False, False, False, False,
             False, False, False, False, False, False, False, False, False,
-            True , True, True , True, True , True, True , True, True ,
+            True , True, True , True, True , False, True , True, True ,
             False, True , False, False, False, False, False, True , True,
             False, False, False, False, False, False, False, True, True,
             True , True , True , True , True , True , True , True , False ]
 
-    start = (8, 7)
-    end = (8, 9)
+    start = (8, 3)
+    end = (8, 8)
     astar = Astar(grid)
     eat = False
 
-    paths = astar.find_path(grid, start, end, eat)
+    paths = astar.find_path(grid, start, end)
     print(paths)
 
 
