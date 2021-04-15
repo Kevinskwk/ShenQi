@@ -1,12 +1,6 @@
-// ROS
-#include <ros.h>
-#include <std_msgs/ByteArray.h>
-
-ros::NodeHandle nh;
-
 // Setting Variables
-const int reedRow[10] = {35, 34, 33, 32, 31, 30, 29, 28, 27, 26};
-const int reedCol[9] = {24, 25, 23, 36, 37, 38, 39, 40, 41};
+const int reedRow[10] = {26, 27, 28, 29, 30, 31, 32, 33, 34, 35};
+const int reedCol[9] = {23, 25, 24, 38, 37, 36, 41, 40, 39};
 const char num2letter[9] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'};
 
 int reeds[90];
@@ -35,36 +29,17 @@ void loop() {
 }
 
 void checkReed(){
-  for (int a=0; a<3; ++a){
+  for (int a=0; a<9; ++a){
     digitalWrite(reedCol[a], HIGH);
-    //Serial.println("Testing row ");
-    //Serial.print(a, DEC);
-    //Serial.println(' ');
-    //delay(100);
+    delay(10);
     for (int b=0; b<10; ++b){
       int state = digitalRead(reedRow[b]);
       if (state == 1) {
         Serial.print(num2letter[a]);
         Serial.println(b+1);
       }
-      //Serial.print("Testing: ");
-      //Serial.print(num2letter[a]);
-      //Serial.print(b+1);
-      //Serial.print(": ");
-      //Serial.print(state);
-      //Serial.print(", ");
-      //delay(10);
-      //Serial.println(b);
-      // reeds[a + b] = state;
-      //Serial.println(reeds[a-32+(b-22)]);
-// If 9x10 array is used
-//      reeds[a-32][b-22] = state;
-//      Serial.println(reeds[a-32][b-22]);
-      //delay(10);
     }
-    //Serial.println();
     digitalWrite(reedCol[a], LOW);
-    delay(10);
   }
 }
 

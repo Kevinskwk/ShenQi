@@ -2,12 +2,10 @@
 #include <ros.h>
 #include <std_msgs/Int8MultiArray.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/Int32.h>
 
 // change this to fit the number of steps per revolution for your motor
 #define STEPS_PER_RESOLUTION 200
-// shape of grid
-#define W 9
-#define H 10
 
 // Stepper motor pins
 #define LDir 9
@@ -19,11 +17,6 @@
 #define Lswitch_y 6
 // Magnet pin
 #define magnet 8
-
-// Reed switch
-const short reedRow[10] = {35, 34, 33, 32, 31, 30, 29, 28, 27, 26};
-const short reedCol[9] = {24, 25, 23, 36, 37, 38, 39, 40, 41};
-// const char num2letter[9] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I'};
 
 // initialize the stepper library:
 Stepper myStepperL(STEPS_PER_RESOLUTION, LDir, LStep);
@@ -44,7 +37,7 @@ bool debounce = false;
 bool moving = false;
 
 // ROS stuff
-void movementCb( const std_msgs::Int8MultiArray& msg) {
+void movementCb(const std_msgs::Int8MultiArray& msg) {
   switch (msg.data[2]) {
     case 0:
       digitalWrite(magnet, LOW);
@@ -67,12 +60,11 @@ void movementCb( const std_msgs::Int8MultiArray& msg) {
 }
 
 ros::NodeHandle nh;
-std_msgs::Int8MultiArray reedsMsg;
 std_msgs::Empty feedbackMsg;
+std_msgs::Int32 debugMsg;
 ros::Subscriber<std_msgs::Int8MultiArray> movementSub("movement", &movementCb);
-ros::Publisher reedPub("sensor", &reedsMsg);
 ros::Publisher feedbackPub("feedback", &feedbackMsg);
-
+ros::Publisher debugPub("debug", &debugMsg);
 
 void setup() {
   // Digital pins
@@ -82,46 +74,19 @@ void setup() {
   pinMode(magnet, OUTPUT);
   digitalWrite(magnet, LOW);
 
-  for (int i = 0; i < 10; ++i) {
-    pinMode(reedRow[i], INPUT);
-  }
-  for (int i = 0; i < 9; ++i) {
-    pinMode(reedCol[i], OUTPUT);
-    digitalWrite(reedCol[i], LOW);
-  }
-
   // ROS
-  reedsMsg.data = (std_msgs::Int8MultiArray::_data_type *)malloc(sizeof(short)*90);
-  reedsMsg.data_length = 90;
   nh.initNode();
   nh.subscribe(movementSub);
-  nh.advertise(reedPub);
   nh.advertise(feedbackPub);
+  nh.advertise(debugPub);
 
   delay(250);
   home();
 }
 
 void loop() {
-  checkReed();
   nh.spinOnce();
-  delay(50);
-}
-
-void checkReed(){
-  for (int i = 0; i < 9; ++i){
-    digitalWrite(reedCol[i], HIGH);
-    delay(10);
-    for (int j = 0; j < 10; ++j){
-      reedsMsg.data[j * W + i] = digitalRead(reedRow[j]);
-      /*if (state == 1) {
-        Serial.print(num2letter[a]);
-        Serial.println(b+1);
-      }*/
-    }
-    digitalWrite(reedCol[i], LOW);
-  }
-  reedPub.publish(&reedsMsg);
+  delay(100);
 }
 
 void Hbot() {

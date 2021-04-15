@@ -66,7 +66,7 @@ class Game:
         self.astar = Astar(INIT_GRID)
 
         # REMOVE the following line later:
-        self.curr_grid = INIT_GRID
+        #self.curr_grid = INIT_GRID
 
         # Metadata
         self.player_id = id
@@ -125,10 +125,15 @@ class Game:
         else:
             if self.debounce is None:
                 self.debounce = msg.data
-            elif self.debounce == msg:  # not a bounce
+            elif self.debounce == msg.data:  # not a bounce
                 self.debounce = None
-                self.curr_grid = msg.data
+                self.curr_grid = list(map(bool, msg.data))
+                print('changes:', changes)
                 self.process_change(changes)
+
+        #for i in range(H):
+        #    print(self.curr_grid[i * W : (i+1)*W])
+        #print('------------')
 
     # for testing
     def test_cmd_cb(self, msg):
@@ -498,7 +503,13 @@ class Game:
         if self.illegal:
             if self.curr_grid == self.last_move_grid:
                 self.illegal = False
-                # TODO: change back to original screen
+                print("recovered")
+                if self.board.get_turn() == 1:
+                    self.UI_output_pub.publish(UIout(
+                        UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
+                else:
+                    self.UI_output_pub.publish(UIout(
+                        UIout.OPPONENT_TURN, "Waiting for opponent to move...{}".format(feedback.wait_time)))
             return
 
         # ignore during auto moving and not during PLAYING or PROMPT_FORFEIT
@@ -526,12 +537,14 @@ class Game:
             # taking up a piece
             if (self.selected is None) and not changes[key]:
                 self.selected = key
+                print("selected:", self.selected)
 
             # putting down a piece
             elif (self.selected is not None) and changes[key]:
                 start = (self.selected % W, self.selected // W)
                 end = (key % W, key // W)
                 self.process_move(start, end)
+                print("start, end:", start, end)
         self.pub_state()
 
     def process_move(self, start, end, test=False):
