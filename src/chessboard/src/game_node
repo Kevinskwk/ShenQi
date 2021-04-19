@@ -123,14 +123,13 @@ class Game:
             if not self.debounce is None:
                 self.debounce = None
         else:
-            if self.debounce is None:
-                self.debounce = msg.data
-            elif self.debounce == msg.data:  # not a bounce
+            if self.debounce == msg.data:  # not a bounce
                 self.debounce = None
                 self.curr_grid = list(map(bool, msg.data))
                 print('changes:', changes)
                 self.process_change(changes)
-
+            else:
+                self.debounce = msg.data
         #for i in range(H):
         #    print(self.curr_grid[i * W : (i+1)*W])
         #print('------------')

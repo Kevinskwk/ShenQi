@@ -100,28 +100,28 @@ void Hbot() {
     // down right
     if (target_x > 0 && target_y > 0) {
       for (long s = 0; s < target_x; ++s) {
-        myStepperR.step(2);
+        myStepperL.step(2);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
     // down left
     else if (target_x < 0 && target_y > 0) {
       for (long s = 0; s > target_x; --s) {
-        myStepperL.step(-2);
+        myStepperR.step(-2);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
     // up right
     else if (target_x > 0 && target_y < 0) {
       for (long s = 0; s < target_x; ++s) {
-        myStepperL.step(2);
+        myStepperR.step(2);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
     // up left
     else {
       for (long s = 0; s > target_x; --s) {
-        myStepperR.step(-2);
+        myStepperL.step(-2);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
@@ -149,16 +149,16 @@ void Hbot() {
     // down
     if (target_y > 0){
       for (long s = 0; s < target_y; ++s) {
-        myStepperL.step(-1);
-        myStepperR.step(1);
+        myStepperL.step(1);
+        myStepperR.step(-1);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
     // up
     else {
       for (long s = 0; s > target_y; --s) {
-        myStepperL.step(1);
-        myStepperR.step(-1);
+        myStepperL.step(-1);
+        myStepperR.step(1);
         if (s % 1000 == 0) nh.spinOnce();
       }
     }
@@ -205,8 +205,8 @@ void home() {
     }
     else {
       debounce = false;
-      myStepperL.step(1);
-      myStepperR.step(-1);
+      myStepperL.step(-1);
+      myStepperR.step(1);
     }
     if (s % 1000 == 0) nh.spinOnce();
     if (moving) break;
