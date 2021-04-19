@@ -511,6 +511,7 @@ class Game:
             if self.curr_grid == self.last_move_grid:
                 self.illegal = False
                 print("recovered")
+                self.selected = None
                 if self.board.get_turn() == 1:
                     self.UI_output_pub.publish(UIout(
                         UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
