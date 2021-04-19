@@ -20,11 +20,13 @@ class Astar():
         self.H = 10
         self.grid = grid
 
-    def get_adjacent(self, pos, occupied=False):
+    def get_adjacent(self, pos, occupied=False, exclude=[]):
         res = []
         for adj in [(0, -1), (0, 1), (-1, 0), (-1, -1), (-1, 1), (1, -1), (1, 1), (1, 0)]:
             # Get new position
             new_pos = (pos[0] + adj[0], pos[1] + adj[1])
+            if new_pos in exclude:
+                continue
             # Make sure within range and walkable terrain
             if new_pos[0] < self.W and new_pos[0] >= 0 and \
                 new_pos[1] < self.H and new_pos[1] >= 0 and \
@@ -127,7 +129,7 @@ class Astar():
                 # get first iteration of blockings
                 check_tile = list(end)
                 while len(blockings) == 0:
-                    blockings = self.get_adjacent(check_tile, occupied=True)
+                    blockings = self.get_adjacent(check_tile, occupied=True, exclude=[start, end])
                     check_tile[0] -= 1
                 # iterating through all blockings
                 # This is actually an Astar inside a BFS
@@ -149,7 +151,7 @@ class Astar():
 
                     # append new blockings
                     self.grid[blocking[1]*self.W + blocking[0]] = True
-                    for new_blocking in self.get_adjacent(blocking, occupied=True):
+                    for new_blocking in self.get_adjacent(blocking, occupied=True, exclude=[start, end]):
                         if new_blocking not in blockings:
                             blockings.append(new_blocking)
                     i += 1
@@ -199,7 +201,7 @@ class Astar():
 
                 # append new blockings
                 self.grid[blocking[1]*self.W + blocking[0]] = True
-                for new_blocking in self.get_adjacent(blocking, occupied=True):
+                for new_blocking in self.get_adjacent(blocking, occupied=True, exclude=[start]):
                     if new_blocking not in blockings:
                         blockings.append(new_blocking)
                 i += 1
