@@ -153,12 +153,12 @@ class Game:
 
         elif self.state == States.MODE_SELECT:
             # Back
-            if input == 1:
+            if input == 3:
                 self.state = States.HOME
                 self.UI_output_pub.publish(UIout(
                     UIout.HOME, "HOME\nPress any button (1-4) to continue"))
             # Quickmatch
-            elif input == 2:
+            elif input == 1:
                 self.state = States.QUICKMATCH
                 self.UI_output_pub.publish(UIout(
                     UIout.LOADING, "Matching Opponent..."))
@@ -168,7 +168,7 @@ class Game:
                     done_cb=self.quick_match_done_cb,
                     feedback_cb=self.quick_match_feedback_cb)
             # Lobby
-            elif input == 3:
+            elif input == 2:
                 self.state = States.LOBBY_INPUT
                 # self.UI_output_pub.publish(UIout(
                 #     UIout.LOBBY_INPUT, "LOBBY INPUT\npress 1-4 for a-d"))
