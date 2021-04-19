@@ -115,6 +115,8 @@ class Game:
 
     # Callback functions
     def sensor_cb(self, msg):
+        if self.moving:
+            return
         changes = dict()
         for i in range(90):
             if self.curr_grid[i] != bool(msg.data[i]):
@@ -249,7 +251,7 @@ class Game:
 
         elif self.state == States.PROMPT_FORFEIT:
             # Yes
-            if input == 2:
+            if input == 1:
                 self.board.forfeit(1)
                 cmd_msg = GameCmd(self.player_id,
                                   self.opponent,
@@ -268,20 +270,20 @@ class Game:
                     UIout.LOSE, "ENDGAME\nRematch? 1: Back, 2: Yes, 3: No"))
 
             # No
-            elif input == 3:
+            elif input == 2:
                 self.state = States.PLAYING
                 self.UI_output_pub.publish(UIout(
                     UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
 
         elif self.state == States.ENDGAME:
             # Quit
-            if input == 1 or input == 3:
+            if input == 2 or input == 3:
                 self.opponent = ''
                 self.state = States.HOME
                 self.UI_output_pub.publish(UIout(
                     UIout.HOME, "HOME\nPress any button (1-4) to continue"))
             # Rematch
-            if input == 2:
+            if input == 1:
                 goal = RematchGoal(self.player_id, self.opponent)
                 self.rematch_client.send_goal(
                     goal,
@@ -467,6 +469,7 @@ class Game:
         self.player_info_pub.publish(self.info_msg)
 
     def send_move_piece(self, start, end):
+        self.moving = True
         # check if eating (piece on end)
         if self.last_move_grid[end[1]*W + end[0]]:
             print("eating")
@@ -496,6 +499,11 @@ class Game:
             goal,
             done_cb=self.move_piece_done_cb,
             feedback_cb=self.move_piece_feedback_cb)
+
+        self.curr_grid[end[1]*W + end[0]] = True
+        self.curr_grid[start[1]*W + start[0]] = False
+        self.last_move_grid[end[1]*W + end[0]] = True
+        self.last_move_grid[start[1]*W + start[0]] = False
 
     def process_change(self, changes):
         # recovery from illegal move
