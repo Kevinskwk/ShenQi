@@ -408,6 +408,7 @@ class Game:
     def move_piece_done_cb(self, state, result):
         self.last_move_grid = self.curr_grid
         self.moving = False
+        self.selected = None
 
     # QuickMatch action
     def quick_match_feedback_cb(self, feedback):
