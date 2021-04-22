@@ -242,9 +242,9 @@ class Game:
                     self.UI_output_pub.publish(UIout(
                         UIout.ARRANGE, "Arrangement error, try again"))
 
-        elif self.state == States.PLAYING:
+        elif self.state == States.PLAYING and self.board.get_turn() == 1:
             # Forfeit
-            if input == 3:
+            if input == 4:
                 self.state = States.PROMPT_FORFEIT
                 self.UI_output_pub.publish(UIout(
                     UIout.FORFEIT, "PROMPT FORFEIT\nConfirm forfeit? 2: Yes, 3: No"))
@@ -409,6 +409,8 @@ class Game:
         self.last_move_grid = self.curr_grid
         self.moving = False
         self.selected = None
+        self.UI_output_pub.publish(UIout(
+            UIout.YOUR_TURN, "PLAYING\n3: Forfeit"))
 
     # QuickMatch action
     def quick_match_feedback_cb(self, feedback):

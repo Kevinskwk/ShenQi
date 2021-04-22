@@ -46,6 +46,8 @@ def get_text(string, colour=(0, 0, 0)):
 
 # callback functions
 def button_cb(channel):
+    if channel == 18:
+        return
     button_id = buttons.index(channel) + 1
     msg = UIin(button_id)
     UI_input_pub.publish(msg)
@@ -65,7 +67,7 @@ UI_input_pub = rospy.Publisher('UI_input', UIin, queue_size=10)
 UI_output_sub = rospy.Subscriber('UI_output', UIout, UI_output_cb, queue_size=10)
 
 # set up buttons and callbacks
-buttons = (4, 14, 15, 18)
+buttons = (14, 15, 17, 18)
 if RPI:
     GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BCM)
