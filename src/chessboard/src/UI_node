@@ -2,6 +2,7 @@
 
 import rospy
 import pygame
+import time
 from chess_msgs.msg import UIin, UIout
 import os
 
@@ -48,9 +49,11 @@ def get_text(string, colour=(0, 0, 0)):
 def button_cb(channel):
     if channel == 18:
         return
-    button_id = buttons.index(channel) + 1
-    msg = UIin(button_id)
-    UI_input_pub.publish(msg)
+    time.sleep(0.2)
+    if GPIO.input(channel):
+        button_id = buttons.index(channel) + 1
+        msg = UIin(button_id)
+        UI_input_pub.publish(msg)
 
 def UI_output_cb(msg):
     gameDisplay.fill((255, 255, 255))
