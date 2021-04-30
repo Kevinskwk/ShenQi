@@ -13,8 +13,7 @@ from chess_msgs.msg import \
     WaitReadyAction, WaitReadyFeedback, WaitReadyResult, \
     LobbyRequestAction, LobbyRequestFeedback, LobbyRequestResult, \
     RematchAction, RematchFeedback, RematchResult
-from chess_msgs.srv import SendCmd, SendCmdResponse, \
-    ServerInfo, ServerInfoResponse
+from chess_msgs.srv import SendCmd, SendCmdResponse
 
 import pyrebase
 from credential import config
@@ -263,16 +262,12 @@ def handle_send_cmd(req):
             'moves').update({req.cmd.step: req.cmd.move})
     return SendCmdResponse(True)
 
-def handle_server_info(req):
-    pass
-
 # ROS subscriber
 player_sub = rospy.Subscriber(
     'player_info', PlayerInfo, player_cb, queue_size=1)
 
 # ROS service
 send_cmd_srv = rospy.Service('send_cmd', SendCmd, handle_send_cmd)
-server_info_srv = rospy.Service('server_info', ServerInfo, handle_server_info)
 
 rospy.init_node('server_node', anonymous=False)
 quick_match_server = QuickMatchServer('quick_match')

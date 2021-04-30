@@ -10,7 +10,7 @@ from Board import Board
 # TODO: Check what message types are redundant and can be replace with std_msgs
 from std_msgs.msg import String, Int8MultiArray
 from chess_msgs.msg import PlayerInfo, UIin, UIout, GameCmd
-from chess_msgs.srv import SendCmd, ServerInfo
+from chess_msgs.srv import SendCmd
 from chess_msgs.msg import \
     MovePieceAction, MovePieceGoal, MovePieceResult, MovePieceFeedback, \
     QuickMatchAction, QuickMatchGoal, QuickMatchResult, QuickMatchFeedback, \
@@ -93,8 +93,6 @@ class Game:
         # ROS service clients
         rospy.wait_for_service('send_cmd')
         self.send_cmd_client = rospy.ServiceProxy('send_cmd', SendCmd)
-        rospy.wait_for_service('server_info')
-        self.server_info_client = rospy.ServiceProxy('server_info', ServerInfo)
 
         # ROS action clients
         self.wait_cmd_client = actionlib.SimpleActionClient(

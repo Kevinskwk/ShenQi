@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+"""
+Script for testing the move_piece action server
+"""
+
 import rospy
 import actionlib
 from chess_msgs.msg import \

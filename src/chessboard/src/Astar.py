@@ -1,3 +1,8 @@
+"""
+Implementation of A* path finding algorithm and a original blocking resolution
+Algorithm.
+"""
+
 class Node():
     """A node class for A* Pathfinding"""
 

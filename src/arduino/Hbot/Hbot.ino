@@ -1,3 +1,9 @@
+/*
+ * Arduino code for controling the Hbot X-Y motion system. Receives
+ * Int8MultiArray commands and publishes feedback debug messages.
+ * Tested on Arduino Nano
+ */
+
 #include <Stepper.h>
 #include <ros.h>
 #include <std_msgs/Int8MultiArray.h>
