@@ -1,10 +1,10 @@
 # ShenQi - A telepresence chinese chess board
 
-
+[toc]
 
 ShenQi was conceptualised as part of SUTD's 30.007 "Engineering Design Innovation" year 2 module. In the span of 13 short weeks, our team conceptualised and designed a custom product under the theme "Supporting the ageing population". 
 
-![shenqi-overview](./assets/shenqi_overview.png)
+<img src="./assets/shenqi_overview.png" alt="shenqi-overview" style="zoom:200%;" />
 
 ### The Problem
 
@@ -12,7 +12,7 @@ Neighbourhood common spaces have been an intrinsic part of Singapore’s unique 
 
 Yet, COVID-19 has led to a myriad of new technological solutions to bring us closer together despite the our physical distances. These include [blank] However, the Elderly are a unique group who are unable to fully benefit from the positive effects of these technologies on our daily lives, due to the general lack of technological knowledge. As COVID-19 fuels the rapid digital transformation of our lives, the Elderly are being left behind. The common spaces in our neighbourhoods that used to be hotspots for them to interact have now become cordoned off, leaving the Elderly cooped up alone at home.
 
-![Cordoned off areas in Chinatown, Singapore](./assets/Cordon_off_areas.jpg)
+<img src="./assets/Cordon_off_areas.jpg" alt="Cordoned off areas in Chinatown, Singapore" style="zoom:50%;" />
 
 To tackle this problem, we came up with a solution to use technology to bring back these community interactions to the Elderly. In particular, by bringing the technology to the Elderly through familiar physical objects (and retrofitting them with smart tech), we believe that the Elderly will be at ease with using our product. 
 
@@ -60,7 +60,25 @@ With initial testing, the system performed well on a Pi4, with game connection a
 
 [tbd]
 
-[toc]
+
+
+
+
+### Acknowledgements
+
+Special thanks to Professor Pablo Valdivia y Alvarado, Professor Subburaj Karupppasamy and the rest of the teaching team for their time, dedication and guidance. Special thanks to all the judges who took their time off to visit our exhibition, be it physically or virtually, for the meaningful discussion session with us and giving us your 
+
+**The Team:**
+
+- Tan Kai Jie (SUTD EPD, Beyond Industry 4.0 Track)
+- Cornelia Ho (SUTD EPD, Electrical Engineering Track)
+- Gan Jia Jie (SUTD EPD, Beyond Industry 4.0 Track)
+- Lui Yan Le (SUTD EPD, Beyond Industry 4.0 Trakc)
+- Ma Yu Chen (SUTD EPD, Robotics Track)
+
+![The Team](./assets/team_cohesion.jpg)
+
+
 
 
 
