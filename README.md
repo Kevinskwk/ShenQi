@@ -1,7 +1,5 @@
 # ShenQi - A telepresence chinese chess board
 
-[toc]
-
 ShenQi was conceptualised as part of SUTD's 30.007 "Engineering Design Innovation" year 2 module. In the span of 13 short weeks, our team conceptualised and designed a custom product under the theme "Supporting the ageing population". 
 
 <img src="./assets/shenqi_overview.png" alt="shenqi-overview" style="zoom:200%;" />
@@ -74,7 +72,7 @@ Special thanks to Professor Pablo Valdivia y Alvarado, Professor Subburaj Karupp
 - Cornelia Ho (SUTD EPD, Electrical Engineering Track)
 - Gan Jia Jie (SUTD EPD, Beyond Industry 4.0 Track)
 - Lui Yan Le (SUTD EPD, Beyond Industry 4.0 Trakc)
-- Ma Yu Chen (SUTD EPD, Robotics Track)
+- Kevin Ma (SUTD EPD, Robotics Track)
 
 ![The Team](./assets/team_cohesion.jpg)
 
